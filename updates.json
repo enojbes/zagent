@@ -1,7 +1,18 @@
 {
   "addons": {
     "zagent@firefox-proxy-extension": {
-      "updates": []
+      "updates": [
+        {
+          "version": "1.0.5",
+          "update_link": "https://github.com/enojbes/zagent/releases/download/v1.0.5/26af846d889e4befbfa3-1.0.5.xpi",
+          "update_hash": "sha256:7891f06408f845957179a38eb7ca23b126d06668c84b96a24ad3d36c0be691d3",
+          "applications": {
+            "gecko": {
+              "strict_min_version": "142.0"
+            }
+          }
+        }
+      ]
     }
   }
 }
