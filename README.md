@@ -115,10 +115,11 @@ are in Turkey while your own address is on the wire. Now:
 A *Try now* link appears only when a retry could plausibly help. It stays hidden
 during a Hola block, because retrying through a block is what causes blocks.
 
-The country list keeps the last four countries you picked at the top. Search is
-focused when the popup opens, arrow keys move the cursor, Enter selects, Escape
-clears the filter, and the list scrolls to your current country rather than
-opening on Argentina. The rows carry `role="option"` with `aria-activedescendant`
+The country list keeps the last four countries you picked at the top. The popup
+does not steal focus on open, because a search field with an open list under it
+reads as a dropdown you did not ask for; typing anywhere focuses it instead.
+Arrow keys move the cursor, Enter selects, Escape clears the filter, and the
+list scrolls to your current country rather than opening on Argentina. The rows carry `role="option"` with `aria-activedescendant`
 on the search field, so the whole thing works without a mouse.
 
 *Verify* asks ipinfo.io what address it sees and remembers the answer against
@@ -128,13 +129,26 @@ extension that talks to a third party, and only when you press it.
 
 ## Settings
 
-**Country.** Fetched from Hola daily and cached. Names and flags come from
+**Country.** There is no default. The switch stays disabled until you pick one,
+because a tunnel with a country somebody else chose is not a sensible starting
+state. The list is fetched from Hola daily and cached; names and flags come from
 `Intl.DisplayNames`, so no country table ships with the extension. Hola says
 `uk` where ISO 3166 says `GB`; the popup translates.
 
-**Exit type.** `Datacenter` is the default and the one you want. `Residential`
-and `Peer` route you through other people's home connections, which is the part
-of Hola's model worth avoiding, and the popup says so in red.
+**Exit type.** Five, and only the first is worth using by default.
+
+| Type | Where you come out | Cost |
+|---|---|---|
+| Datacenter | Hola's own servers | Fastest. Streaming and banks often block it |
+| Datacenter pool | A shared pool of the same | As above, different addresses |
+| Residential, shared | A home line rented from Bright Data | Harder to block, slower, someone else's line |
+| Peer | Another Hola user's home connection | Harder to block, slowest, meant to run both ways |
+| Virtual pool | A pool Hola fills for a couple of countries | Fails almost everywhere else |
+
+Datacenter is the only one verified here: `country=tr` came out at a Radore
+datacenter in Istanbul. The rest are read from `hola-proxy`'s source. Residential
+and Peer are marked in red in the popup, because borrowing a stranger's home
+connection is the part of Hola's model worth declining.
 
 **Block traffic when no tunnel is up.** On by default. Gecko's documented
 behaviour is to fall back to the browser's own proxy setting once it runs off
@@ -197,7 +211,7 @@ other four run under plain Node in the test suite.
 npm test
 ```
 
-47 tests, no dependencies. The interesting ones are in `test/router.test.mjs`,
+49 tests, no dependencies. The interesting ones are in `test/router.test.mjs`,
 where `hostOf` is checked against the platform URL parser over a corpus, and in
 `test/session.test.mjs`, where the whole lifecycle runs against a stubbed `fetch`
 with mocked timers.

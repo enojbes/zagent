@@ -59,6 +59,23 @@ test("protective settings stay on unless explicitly turned off", async () => {
   assert.equal(on.noPrediction, true);
 });
 
+test("there is no country until one is chosen", async () => {
+  const fresh = await settings.load();
+  assert.equal(fresh.country, "");
+  assert.equal(fresh.enabled, false);
+});
+
+test("the tunnel cannot arm without somewhere to connect to", async () => {
+  store.settings = { enabled: true, country: "" };
+  assert.equal((await settings.load()).enabled, false, "enabled without a country is not a state");
+
+  const chosen = await settings.save({ country: "tr" });
+  assert.equal(chosen.enabled, false, "picking a country does not switch it on by itself");
+
+  const armed = await settings.save({ enabled: true });
+  assert.equal(armed.enabled, true);
+});
+
 test("choosing a country pushes it to the front of the recent list", async () => {
   await settings.save({ country: "de" });
   await settings.save({ country: "nl" });

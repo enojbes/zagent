@@ -39,11 +39,12 @@ const flagOf = (code) =>
   String.fromCodePoint(...[...toRegion(code)].map((c) => 0x1f1e6 + c.charCodeAt(0) - 65));
 
 const TYPE_NOTES = {
-  direct: "Hola's own datacenter servers. Fastest, and nobody else's traffic touches your connection.",
-  pool: "A shared datacenter pool. Same trade-offs as datacenter.",
-  lum: "A residential IP from Bright Data's shared pool. Harder for sites to block, slower.",
-  peer: "Routes through another Hola user's home connection, and theirs may route through yours.",
-  virt: "A virtual pool Hola only populates for a few countries.",
+  direct:
+    "Hola's own datacenter servers. Fastest, and nothing of your connection is shared with anyone. This is the one to use.",
+  pool: "A shared pool of datacenter servers. Same trade-offs as Datacenter, different addresses.",
+  lum: "A home address rented from Bright Data's shared pool. Harder for sites to block, and slower, but you are borrowing a stranger's line.",
+  peer: "Routes through another Hola user's home connection. Harder for sites to block, slower, and the arrangement is meant to run both ways.",
+  virt: "A pool Hola only fills for a couple of countries. Expect it to fail everywhere else.",
 };
 const RISKY_TYPES = new Set(["peer", "lum"]);
 
@@ -61,7 +62,6 @@ async function init() {
   apply(await browser.runtime.sendMessage({ type: "getState" }));
   wire();
   revealSelected();
-  el.search.focus();
 }
 
 browser.runtime.onMessage.addListener((msg) => {
@@ -78,6 +78,7 @@ function apply(next) {
   const { state, settings, privateAllowed } = next;
 
   el.enabled.checked = settings.enabled;
+  el.enabled.disabled = settings.country === "";
   el.proxyType.value = settings.proxyType;
   el.failClosed.checked = settings.failClosed;
   el.blockWebRTC.checked = settings.blockWebRTC;
@@ -98,6 +99,14 @@ function apply(next) {
  * everything or quietly puts you back on your own address.
  */
 function paintStatus(state, settings) {
+  if (settings.country === "") {
+    el.status.dataset.tone = "off";
+    el.statusTitle.textContent = "No country chosen";
+    el.statusDetail.textContent = "Pick one below, then switch the tunnel on.";
+    el.retry.hidden = true;
+    return;
+  }
+
   const country = `${flagOf(state.country || settings.country)} ${nameOf(state.country || settings.country)}`;
   let tone = "off";
   let title = "Off";
@@ -161,10 +170,11 @@ function whenFrom(at) {
 async function paintExit(state) {
   const stored = (await browser.storage.local.get(EXIT_KEY))[EXIT_KEY];
   const agent = state.agents[0];
-  el.check.disabled = state.status !== "on";
 
+  // A control that cannot do anything should not be on screen looking clickable.
+  el.check.hidden = state.status !== "on";
   if (state.status !== "on") {
-    el.exitValue.textContent = "Exit address unknown while disconnected";
+    el.exitValue.textContent = "";
     return;
   }
   if (!stored || stored.agent !== agent) {
@@ -293,6 +303,16 @@ function wire() {
     patch({ bypass: hosts });
   });
 
+  // The popup no longer steals focus on open, so typing anywhere still reaches
+  // the filter. Keyboard users keep the shortcut without the search field
+  // looking like an open dropdown every time the popup appears.
+  document.addEventListener("keydown", (event) => {
+    if (event.ctrlKey || event.metaKey || event.altKey) return;
+    if (event.key.length !== 1) return;
+    if (document.activeElement !== document.body) return;
+    el.search.focus();
+  });
+
   el.retry.addEventListener("click", reconnect);
   el.reconnect.addEventListener("click", reconnect);
   el.check.addEventListener("click", verifyExit);
@@ -347,6 +367,6 @@ async function verifyExit() {
     el.exitValue.textContent = "Exit address check got no answer";
   } finally {
     clearTimeout(timer);
-    el.check.disabled = snapshot.state.status !== "on";
+    el.check.disabled = false;
   }
 }

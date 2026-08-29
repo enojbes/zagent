@@ -1,7 +1,7 @@
 {
   "manifest_version": 2,
   "name": "Zagent",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Route Firefox through Hola's zagent proxy network. Pick a country, flip the switch.",
   "browser_specific_settings": {
     "gecko": {

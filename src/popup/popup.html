@@ -30,8 +30,8 @@
     </p>
 
     <div class="exit">
-      <span id="exitValue" class="exit-value">Exit address not checked</span>
-      <button type="button" id="check" class="link">Verify</button>
+      <span id="exitValue" class="exit-value"></span>
+      <button type="button" id="check" class="link" hidden>Verify</button>
     </div>
 
     <input
@@ -56,8 +56,8 @@
         <select id="proxyType">
           <option value="direct">Datacenter</option>
           <option value="pool">Datacenter pool</option>
-          <option value="lum">Residential (shared)</option>
-          <option value="peer">Peer (other Hola users)</option>
+          <option value="lum">Residential, shared</option>
+          <option value="peer">Peer, other people's connections</option>
           <option value="virt">Virtual pool</option>
         </select>
       </label>

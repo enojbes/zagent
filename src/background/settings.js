@@ -4,6 +4,7 @@
  * @typedef {object} Settings
  * @property {boolean}  enabled
  * @property {string}   country     Hola country code, e.g. "tr". Not always ISO 3166 ("uk").
+ *                                  Empty until the user picks one; the tunnel cannot arm without it.
  * @property {ProxyType} proxyType
  * @property {boolean}  failClosed  Error the request out when no tunnel is up, rather than
  *                                  falling back to the real connection.
@@ -17,7 +18,7 @@
 /** @type {Readonly<Settings>} */
 export const DEFAULTS = Object.freeze({
   enabled: false,
-  country: "tr",
+  country: "",
   proxyType: "direct",
   failClosed: true,
   blockWebRTC: true,
@@ -89,9 +90,12 @@ const PROXY_TYPES = new Set(["direct", "pool", "lum", "peer", "virt"]);
  */
 function sanitize(raw) {
   const v = raw && typeof raw === "object" ? /** @type {any} */ (raw) : {};
+  const country = isCountryOrUnset(v.country) ? v.country : DEFAULTS.country;
   return {
-    enabled: v.enabled === true,
-    country: isCountryCode(v.country) ? v.country : DEFAULTS.country,
+    // There is nowhere to connect to without a country, so the two cannot
+    // disagree. This is the only place that invariant needs enforcing.
+    enabled: v.enabled === true && country !== "",
+    country,
     proxyType: PROXY_TYPES.has(v.proxyType) ? v.proxyType : DEFAULTS.proxyType,
     failClosed: v.failClosed !== false,
     blockWebRTC: v.blockWebRTC !== false,
@@ -104,6 +108,11 @@ function sanitize(raw) {
 /** @param {unknown} c */
 function isCountryCode(c) {
   return typeof c === "string" && /^[a-z]{2}$/.test(c);
+}
+
+/** @param {unknown} c */
+function isCountryOrUnset(c) {
+  return c === "" || isCountryCode(c);
 }
 
 /**
