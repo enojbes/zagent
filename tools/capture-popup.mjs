@@ -19,6 +19,9 @@ const OUT = path.join(ROOT, "docs", "img");
 const STATES = ["on", "failopen"];
 const SIZE = "340,430";
 
+/** Every Firefox this script starts, so none outlive it. */
+const started = new Set();
+
 const stage = mkdtempSync(path.join(tmpdir(), "zagent-shots-"));
 const profile = path.join(stage, "profile");
 mkdirSync(profile);
@@ -77,13 +80,13 @@ function render(state) {
   return new Promise((resolve, reject) => {
     const child = firefox([`${origin}/popup/popup.html#${state}`]);
     const timer = setTimeout(() => {
-      child.kill("SIGTERM");
+      stop(child);
       reject(new Error(`${state} never settled`));
     }, 60_000);
     notify = () => {
       if (!settled.has(state)) return;
       clearTimeout(timer);
-      child.kill("SIGTERM");
+      stop(child);
       resolve();
     };
   });
@@ -96,14 +99,34 @@ function shoot(url, out) {
   });
 }
 
-/** A private profile, so this never disturbs a Firefox the user already has open. */
+/**
+ * A private profile, so this never disturbs a Firefox the user already has open,
+ * and detached so it leads its own process group. Firefox re-execs itself, so
+ * signalling the process we spawned leaves the real one running.
+ */
 function firefox(args) {
-  return spawn(
+  const child = spawn(
     "firefox",
     ["--headless", "--no-remote", "--profile", profile, "--window-size", SIZE, ...args],
-    { stdio: "ignore" },
+    { stdio: "ignore", detached: true },
   );
+  started.add(child);
+  child.on("exit", () => started.delete(child));
+  return child;
 }
+
+function stop(child) {
+  started.delete(child);
+  try {
+    process.kill(-child.pid, "SIGTERM");
+  } catch {
+    // Already gone.
+  }
+}
+
+process.on("exit", () => {
+  for (const child of started) stop(child);
+});
 
 function type(file) {
   if (file.endsWith(".css")) return "text/css";
