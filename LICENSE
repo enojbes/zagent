@@ -2,11 +2,6 @@ MIT License
 
 Copyright (c) 2026 enojbes
 
-The Hola protocol implementation in src/background/hola.js is a JavaScript port
-of hola-proxy by Snawoot, also MIT licensed:
-
-    Copyright (c) 2020 Snawoot
-
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
 in the Software without restriction, including without limitation the rights

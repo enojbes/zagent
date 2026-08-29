@@ -1,0 +1,9 @@
+Zagent contains a JavaScript port of the Hola client protocol from hola-proxy
+by Snawoot, used under the MIT License.
+
+    hola-proxy
+    Copyright (c) 2020 Snawoot
+    https://github.com/snawoot-proxies-forks/hola-proxy
+
+The ported logic lives in src/background/hola.js. The upstream repository was
+removed from GitHub; the link above is a reconstruction from public sources.

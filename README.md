@@ -133,6 +133,7 @@ browser harnesses, and cutting a release.
 
 ## Licence
 
-MIT. The protocol work is [Snawoot](https://github.com/Snawoot)'s; the original
-repository is gone from GitHub and this was ported from the
+MIT, see [LICENSE](LICENSE). The protocol work is
+[Snawoot](https://github.com/Snawoot)'s and is credited in [NOTICE](NOTICE); the
+original repository is gone from GitHub and this was ported from the
 [reconstruction](https://github.com/snawoot-proxies-forks/hola-proxy).
