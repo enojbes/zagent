@@ -48,8 +48,19 @@ await new Promise((resolve) => scratch.listen(0, "127.0.0.1", resolve));
 const DEAD_PORT = scratch.address().port;
 await new Promise((resolve) => scratch.close(resolve));
 
+/**
+ * Two probes report independently: the routing one from the background page and
+ * the popup one from its own tab. Resolving on the first to arrive would kill
+ * Firefox out from under the other, which showed up as the popup checks failing
+ * at random.
+ */
 let deliver;
 const collected = new Promise((resolve) => (deliver = resolve));
+let routingReport = null;
+
+function maybeDeliver() {
+  if (routingReport !== null && popupReport !== null) deliver(routingReport);
+}
 const collector = createHttpServer((req, res) => {
   if (req.url.startsWith("/mark/")) {
     marks[req.url.slice(6)] = arrivals.length;
@@ -66,6 +77,7 @@ const collector = createHttpServer((req, res) => {
       } catch {
         popupReport = { errors: ["unreadable popup report"] };
       }
+      maybeDeliver();
     });
     return;
   }
@@ -74,10 +86,11 @@ const collector = createHttpServer((req, res) => {
   req.on("end", () => {
     res.writeHead(204).end();
     try {
-      deliver(JSON.parse(body));
+      routingReport = JSON.parse(body);
     } catch {
-      deliver({ error: `unreadable report: ${body.slice(0, 200)}` });
+      routingReport = { error: `unreadable report: ${body.slice(0, 200)}` };
     }
+    maybeDeliver();
   });
 });
 await new Promise((resolve) => collector.listen(0, "127.0.0.1", resolve));
@@ -108,7 +121,17 @@ firefox.stderr.on("data", (chunk) => (log += chunk));
 
 const phases = await Promise.race([
   collected,
-  new Promise((resolve) => setTimeout(() => resolve({ error: "timed out waiting for the probe" }), DEADLINE_MS)),
+  new Promise((resolve) =>
+    setTimeout(
+      () =>
+        resolve(
+          routingReport ?? {
+            error: popupReport === null ? "neither probe reported" : "the routing probe never reported",
+          },
+        ),
+      DEADLINE_MS,
+    ),
+  ),
 ]);
 
 stopFirefox();
@@ -138,6 +161,7 @@ console.log("");
 
 const checks = [
   ["the probe got the listener attached", phases.listenerAttached === true],
+  ["the popup reported at all", popupReport !== null],
   ["the popup renders in Firefox without errors", popupReport !== null && popupReport.errors.length === 0],
   ["the popup lists every country", popupReport?.countryRows > 40],
   ["a fresh profile has no country and no armed tunnel", popupReport?.selected === null],
