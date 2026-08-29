@@ -80,6 +80,14 @@ kept, so a switch that cannot happen puts the working tunnel back rather than
 leaving nothing. The panel then reports what is actually serving alongside what
 was asked for, and the retry aims at what was asked for.
 
+![Connected to Türkiye while Germany was requested](img/popup-switchfail.png)
+
+Getting that right needed the request and the report to stop sharing a field.
+`state.country` describes what is carrying traffic; `Session.wanted` holds what
+was asked for, and `run` takes its target from there. While those were one
+field, a refresh swallowed by the rate limit rewrote it to the request and the
+panel announced a country the tunnel was not using.
+
 ## Fail-closed
 
 Gecko walks the returned array as a failover chain and, once it runs off the

@@ -16,7 +16,8 @@ import { fileURLToPath } from "node:url";
 
 const ROOT = fileURLToPath(new URL("../", import.meta.url));
 const OUT = path.join(ROOT, "docs", "img");
-const STATES = ["on", "failopen"];
+/** Defaults are the pair the README uses; pass names to inspect others. */
+const STATES = process.argv.slice(2).length ? process.argv.slice(2) : ["on", "failopen", "switchfail"];
 const SIZE = "340,430";
 
 /** Every Firefox this script starts, so none outlive it. */
@@ -144,6 +145,8 @@ const agents = ["zagent417.hola.org"];
 const STATES = {
   on: { state: { status: "on", country: "tr", agents, error: null, fatal: false, retryAt: null }, settings: base, privateAllowed: true },
   failopen: { state: { status: "error", country: "tr", agents: [], error: "NetworkError when attempting to fetch resource.", fatal: false, retryAt: Date.now() + 12000 }, settings: { ...base, failClosed: false }, privateAllowed: true },
+  stale: { state: { status: "on", country: "tr", proxyType: "direct", agents, error: "Hola has temporarily blocked this IP address", fatal: false, stale: true, retryAt: Date.now() + 1180000 }, settings: base, privateAllowed: true },
+  switchfail: { state: { status: "on", country: "tr", proxyType: "direct", agents, error: "Hola has temporarily blocked this IP address", fatal: false, stale: true, retryAt: Date.now() + 380000 }, settings: { ...base, country: "de", proxyType: "lum" }, privateAllowed: true },
 };
 const name = location.hash.slice(1) || "on";
 const snapshot = { ...STATES[name], countries: COUNTRIES };
