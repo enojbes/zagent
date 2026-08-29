@@ -241,6 +241,45 @@ test("rotation mints a new identity", async () => {
   assert.equal(uuidsUsed().length, 2);
 });
 
+test("a failed refresh keeps the working tunnel instead of tearing it down", async (t) => {
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  session.start(SETTINGS);
+  await settle();
+  assert.equal(host(), "zagent-a.hola.org");
+
+  // Agents keep proxying after Hola's API stops answering, which is exactly the
+  // moment the old code threw away a tunnel that was still carrying traffic.
+  onInit = async () => ({ blocked: true, permanent: false });
+  onTunnels = async () => {
+    throw new Error("should not be reached");
+  };
+  session.refresh("scheduled rotation", 0, true);
+  await settle();
+
+  assert.equal(session.state.status, "on", "still connected");
+  assert.equal(session.state.stale, true, "but flagged as unrefreshed");
+  assert.equal(host(), "zagent-a.hola.org", "traffic still flows through the live agent");
+  assert.ok(session.state.retryAt > Date.now(), "a retry is scheduled");
+});
+
+test("a recovered refresh clears the stale flag", async (t) => {
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  session.start(SETTINGS);
+  await settle();
+
+  onInit = async () => ({ blocked: true, permanent: false });
+  session.refresh("rotation", 0, true);
+  await settle();
+  assert.equal(session.state.stale, true);
+
+  onInit = async () => INIT;
+  onTunnels = async () => tunnelsFor("b");
+  t.mock.timers.tick(70 * 60_000);
+  await settle();
+  assert.equal(session.state.stale, false);
+  assert.equal(host(), "zagent-b.hola.org");
+});
+
 test("refreshing keeps the old route serving until the new one lands", async () => {
   session.start(SETTINGS);
   await settle();

@@ -46,7 +46,26 @@ down the list costs one handshake rather than one per row. And a block backs off
 five minutes, then ten, twenty, forty, capping at an hour.
 
 The block is on `background_init`, which mints the identity, so it gates every
-exit type equally. Nothing is exempt.
+exit type equally when you need a *new* session. Nothing is exempt.
+
+### A block does not stop an existing tunnel
+
+Measured from a currently-blocked address, against a live Turkish agent:
+
+    CONNECT example.com:443, no Proxy-Authorization  ->  HTTP/1.1 200 OK
+    CONNECT example.com:443, junk credentials        ->  HTTP/1.1 403 Auth Failed
+
+The tunnel carried traffic and came out at `31.210.91.240`, Turkey, Radore. So
+the ban lives on Hola's API, not on the agents. Once you hold an agent hostname
+and port, it keeps proxying regardless. Curiously, offering no credentials fares
+better than offering wrong ones.
+
+The extension keeps sending its credentials, the way Hola's own client does.
+What this changes is failure handling. A refresh that cannot reach the API is
+not evidence that the tunnel is dead, so `Session.fail` no longer discards a
+route that is still carrying traffic. It marks the session stale, keeps serving,
+and retries in the background. Only a session with nothing live to lose tears
+its route down.
 
 ## Fail-closed
 

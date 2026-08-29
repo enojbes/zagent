@@ -87,6 +87,7 @@ happening to your traffic. They diverge exactly when it matters.
 | **Off** | Traffic is going out on your own address |
 | **Connecting** | Traffic is held until the tunnel is up |
 | **Connected** | Country, and the agent carrying it |
+| **Connected**, amber | Working, but Hola could not be reached to refresh it |
 | **Traffic blocked** | Fail-closed is on and there is no tunnel. Requests fail |
 | **Not protected** | Fail-closed is off and there is no tunnel. You are exposed |
 

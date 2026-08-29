@@ -113,9 +113,11 @@ function paintStatus(state, settings) {
   let detail = `Traffic is going out on your own address. Ready to connect to ${country}.`;
 
   if (state.status === "on") {
-    tone = "good";
+    tone = state.stale ? "wait" : "good";
     title = `Connected · ${nameOf(state.country)}`;
-    detail = `via ${state.agents[0] ?? "an agent"}`;
+    detail = state.stale
+      ? `via ${state.agents[0] ?? "an agent"}. Could not reach Hola to refresh; retrying ${whenFrom(state.retryAt)}.`
+      : `via ${state.agents[0] ?? "an agent"}`;
   } else if (state.status === "connecting") {
     tone = "wait";
     title = "Connecting";

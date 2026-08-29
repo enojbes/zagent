@@ -15,6 +15,7 @@
  * @property {import("./settings.js").ProxyType} proxyType
  * @property {string | null} error
  * @property {boolean} fatal     Retrying will not help; the user has to change something.
+ * @property {boolean} stale     Connected, but the last refresh failed.
  * @property {string[]} agents   Agent hostnames currently in the chain.
  * @property {number | null} retryAt Epoch ms of the next scheduled attempt.
  * @property {number} since      Epoch ms of the last status change.
@@ -39,7 +40,7 @@ export class Session {
   constructor(onChange) {
     this.onChange = onChange;
     /** @type {State} */
-    this.state = { status: "off", country: "", proxyType: "direct", error: null, fatal: false, agents: [], retryAt: null, since: Date.now() };
+    this.state = { status: "off", country: "", proxyType: "direct", error: null, fatal: false, stale: false, agents: [], retryAt: null, since: Date.now() };
     /** @type {hola.Identity | null} */
     this.identity = null;
     /** @type {AbortController | null} */
@@ -66,14 +67,14 @@ export class Session {
     router.clearRoute();
     this.attempt = 0;
     this.blocks = 0;
-    this.set({ status: "connecting", country: settings.country, proxyType: settings.proxyType, error: null, fatal: false, agents: [], retryAt: null });
+    this.set({ status: "connecting", country: settings.country, proxyType: settings.proxyType, error: null, fatal: false, stale: false, agents: [], retryAt: null });
     this.run();
   }
 
   stop() {
     this.cancel();
     router.setArmed(false);
-    this.set({ status: "off", error: null, fatal: false, agents: [], retryAt: null });
+    this.set({ status: "off", error: null, fatal: false, stale: false, agents: [], retryAt: null });
   }
 
   /**
@@ -107,8 +108,9 @@ export class Session {
     this.lastRefreshAt = Date.now();
     const timer = setTimeout(() => controller.abort(), HANDSHAKE_TIMEOUT_MS);
 
+    const live = this.state.status === "on";
     const work = this.connect(controller.signal);
-    if (this.state.status !== "on") router.holdFor(work);
+    if (!live) router.holdFor(work);
 
     try {
       const creds = await work;
@@ -116,10 +118,10 @@ export class Session {
       router.setRoute(creds.tunnels, creds.authHeader);
       this.attempt = 0;
       this.blocks = 0;
-      this.set({ status: "on", error: null, fatal: false, agents: creds.tunnels.map((t) => t.host), retryAt: null });
+      this.set({ status: "on", error: null, fatal: false, stale: false, agents: creds.tunnels.map((t) => t.host), retryAt: null });
     } catch (err) {
       if (this.abort !== controller) return;
-      this.fail(err);
+      this.fail(err, live);
     } finally {
       clearTimeout(timer);
       if (this.abort === controller) this.abort = null;
@@ -148,22 +150,45 @@ export class Session {
     }
   }
 
-  /** @param {unknown} err */
-  fail(err) {
+  /**
+   * @param {unknown} err
+   * @param {boolean} live Whether a working tunnel was already carrying traffic.
+   */
+  fail(err, live = false) {
     const holaErr = err instanceof hola.HolaError ? err : null;
     const message = err instanceof Error ? err.message : String(err);
+
+    // Agents keep proxying long after Hola's API stops answering, so a failed
+    // refresh is no reason to tear down a tunnel that is still working. Only
+    // give up the route when there was nothing carrying traffic to begin with.
+    if (live) {
+      const delay = this.nextDelay(holaErr) * (0.75 + Math.random() * 0.5);
+      this.set({ stale: true, error: message, retryAt: Date.now() + delay });
+      console.warn(`[zagent] could not refresh (${message}); keeping the current tunnel, retrying in ${Math.round(delay / 1000)}s`);
+      this.scheduleRetry(delay, true);
+      return;
+    }
+
     router.clearRoute();
     if (holaErr?.permanent === true) {
-      this.set({ status: "error", error: message, fatal: true, agents: [], retryAt: null });
+      this.set({ status: "error", error: message, fatal: true, stale: false, agents: [], retryAt: null });
       return;
     }
 
     const delay = this.nextDelay(holaErr) * (0.75 + Math.random() * 0.5);
-    this.set({ status: "error", error: message, fatal: false, agents: [], retryAt: Date.now() + delay });
+    this.set({ status: "error", error: message, fatal: false, stale: false, agents: [], retryAt: Date.now() + delay });
     console.warn(`[zagent] handshake failed (${message}); retrying in ${Math.round(delay / 1000)}s`);
+    this.scheduleRetry(delay, false);
+  }
+
+  /**
+   * @param {number} delay
+   * @param {boolean} keepServing Leave the current tunnel in place while retrying.
+   */
+  scheduleRetry(delay, keepServing) {
     this.retryTimer = setTimeout(() => {
       this.retryTimer = null;
-      this.set({ status: "connecting", retryAt: null });
+      if (!keepServing) this.set({ status: "connecting", retryAt: null });
       this.run();
     }, delay);
   }
