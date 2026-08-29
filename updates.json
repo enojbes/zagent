@@ -21,6 +21,16 @@
               "strict_min_version": "142.0"
             }
           }
+        },
+        {
+          "version": "1.0.7",
+          "update_link": "https://github.com/enojbes/zagent/releases/download/v1.0.7/26af846d889e4befbfa3-1.0.7.xpi",
+          "update_hash": "sha256:a870129ff670c7a8441caa3ed7495b9dadfda60509f4fce0e512aae0d7322720",
+          "applications": {
+            "gecko": {
+              "strict_min_version": "142.0"
+            }
+          }
         }
       ]
     }
