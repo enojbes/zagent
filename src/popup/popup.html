@@ -54,11 +54,17 @@
       <label class="row">
         <span>Exit type</span>
         <select id="proxyType">
-          <option value="direct">Datacenter</option>
-          <option value="pool">Datacenter pool</option>
-          <option value="lum">Residential, shared</option>
-          <option value="peer">Peer, other people's connections</option>
-          <option value="virt">Virtual pool</option>
+          <optgroup label="Hola's own servers">
+            <option value="direct">Datacenter</option>
+            <option value="pool">Datacenter pool</option>
+          </optgroup>
+          <optgroup label="Someone else's home connection">
+            <option value="lum">Residential, rented</option>
+            <option value="peer">Peer</option>
+          </optgroup>
+          <optgroup label="Rarely available">
+            <option value="virt">Virtual pool</option>
+          </optgroup>
         </select>
       </label>
       <p class="note" id="typeNote"></p>

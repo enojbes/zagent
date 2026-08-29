@@ -40,11 +40,11 @@ const flagOf = (code) =>
 
 const TYPE_NOTES = {
   direct:
-    "Hola's own datacenter servers. Fastest, and nothing of your connection is shared with anyone. This is the one to use.",
-  pool: "A shared pool of datacenter servers. Same trade-offs as Datacenter, different addresses.",
+    "Hola's own datacenter servers. Fastest, and nothing of your connection is shared with anyone. Verified working; this is the one to use.",
+  pool: "A shared pool of datacenter servers. Undocumented upstream and untested here.",
   lum: "A home address rented from Bright Data's shared pool. Harder for sites to block, and slower, but you are borrowing a stranger's line.",
-  peer: "Routes through another Hola user's home connection. Harder for sites to block, slower, and the arrangement is meant to run both ways.",
-  virt: "A pool Hola only fills for a couple of countries. Expect it to fail everywhere else.",
+  peer: "Routes through another Hola user's home connection. Undocumented upstream, and the arrangement is meant to run both ways.",
+  virt: "A pool Hola appears to fill only for Brazil and Japan. Expect it to fail everywhere else.",
 };
 const RISKY_TYPES = new Set(["peer", "lum"]);
 

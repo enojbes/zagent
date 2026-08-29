@@ -137,18 +137,37 @@ state. The list is fetched from Hola daily and cached; names and flags come from
 
 **Exit type.** Five, and only the first is worth using by default.
 
-| Type | Where you come out | Cost |
-|---|---|---|
-| Datacenter | Hola's own servers | Fastest. Streaming and banks often block it |
-| Datacenter pool | A shared pool of the same | As above, different addresses |
-| Residential, shared | A home line rented from Bright Data | Harder to block, slower, someone else's line |
-| Peer | Another Hola user's home connection | Harder to block, slowest, meant to run both ways |
-| Virtual pool | A pool Hola fills for a couple of countries | Fails almost everywhere else |
+All five are the same protocol. The only thing that changes is the `country`
+parameter sent to `zgettunnels`, and for `peer` the port field chosen from the
+answer.
 
-Datacenter is the only one verified here: `country=tr` came out at a Radore
-datacenter in Istanbul. The rest are read from `hola-proxy`'s source. Residential
-and Peer are marked in red in the popup, because borrowing a stranger's home
-connection is the part of Hola's model worth declining.
+| Type | `country` sent | Port field | Where you come out |
+|---|---|---|---|
+| Datacenter | `tr` | `trial` | Hola's own servers |
+| Datacenter pool | `tr.pool` | `trial` | A shared pool of the same |
+| Residential, rented | `tr.pool_lum_tr_shared` | `trial` | A home line from Bright Data's pool |
+| Peer | `tr` | `trial_peer` | Another Hola user's home connection |
+| Virtual pool | `tr.pool_virt_pool_tr` | `trial` | A pool Hola fills for a couple of countries |
+
+**How much of this is verified matters.** `hola-proxy` documents exactly two of
+them, `direct` and `lum`. The other three are undocumented code paths, and the
+source comment on `virt` reads "seems to be for brazil and japan only". Only
+`direct` has been measured here: `country=tr` came out at `94.101.87.40`,
+AS42926 Radore, Istanbul, answering a CONNECT in 0.5 to 2.6 seconds. The popup
+groups them by what they actually are and says which is which.
+
+Residential and Peer exit through a real person's home connection. That is the
+part of Hola's model worth declining, and the popup marks both in red.
+
+To measure them yourself:
+
+```bash
+node tools/probe-types.mjs tr
+```
+
+It reuses one identity across all five, the way the extension does, because
+minting one per type is the burst that gets an address blocked. It refuses to
+run at all while blocked.
 
 **Block traffic when no tunnel is up.** On by default. Gecko's documented
 behaviour is to fall back to the browser's own proxy setting once it runs off
@@ -201,6 +220,7 @@ and are not part of this list.
     tools/loopback-e2e.mjs     drive a real Firefox against a stand-in agent
     tools/e2e.mjs              drive a real Firefox against Hola, check the exit address
     tools/bench.mjs            cost of the per-request decision
+    tools/probe-types.mjs      what each exit type actually gives you
 
 `main.js` is the only module that touches `browser.*`, which is what lets the
 other four run under plain Node in the test suite.
