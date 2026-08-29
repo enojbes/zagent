@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Zagent</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <header>
+      <strong class="wordmark">Zagent</strong>
+      <label class="switch">
+        <input type="checkbox" id="enabled" />
+        <span class="track"><span class="knob"></span></span>
+        <span class="sr-only">Tunnel traffic through Hola</span>
+      </label>
+    </header>
+
+    <div id="status" class="status" data-tone="off">
+      <span class="dot" aria-hidden="true"></span>
+      <div class="status-text">
+        <span id="statusTitle" class="status-title">Loading</span>
+        <span id="statusDetail" class="status-detail"></span>
+        <button type="button" id="retry" class="link inline" hidden>Try now</button>
+      </div>
+    </div>
+
+    <p id="privateWarning" class="warning" hidden>
+      Private windows are not tunnelled. Open <code>about:addons</code>, find Zagent, and set
+      <strong>Run in Private Windows</strong> to <strong>Allow</strong>.
+    </p>
+
+    <div class="exit">
+      <span id="exitValue" class="exit-value">Exit address not checked</span>
+      <button type="button" id="check" class="link">Verify</button>
+    </div>
+
+    <input
+      type="search"
+      id="search"
+      class="search"
+      placeholder="Search countries"
+      autocomplete="off"
+      spellcheck="false"
+      role="combobox"
+      aria-expanded="true"
+      aria-controls="countries"
+      aria-label="Search countries"
+    />
+    <ul id="countries" class="countries" role="listbox" aria-label="Exit country"></ul>
+
+    <details>
+      <summary>Advanced</summary>
+
+      <label class="row">
+        <span>Exit type</span>
+        <select id="proxyType">
+          <option value="direct">Datacenter</option>
+          <option value="pool">Datacenter pool</option>
+          <option value="lum">Residential (shared)</option>
+          <option value="peer">Peer (other Hola users)</option>
+          <option value="virt">Virtual pool</option>
+        </select>
+      </label>
+      <p class="note" id="typeNote"></p>
+
+      <label class="row check">
+        <input type="checkbox" id="failClosed" />
+        <span>Block traffic when no tunnel is up</span>
+      </label>
+      <label class="row check">
+        <input type="checkbox" id="blockWebRTC" />
+        <span>Stop WebRTC from leaking your IP</span>
+      </label>
+      <label class="row check">
+        <input type="checkbox" id="noPrediction" />
+        <span>Disable DNS prefetch and speculative connections</span>
+      </label>
+
+      <label class="row stack">
+        <span>Never tunnel these hosts</span>
+        <textarea id="bypass" rows="3" spellcheck="false" placeholder="example.com&#10;intranet.corp"></textarea>
+      </label>
+      <p class="note">One host per line. Subdomains are covered. Loopback and private addresses always skip the tunnel.</p>
+
+      <p class="note">Verifying the exit address asks ipinfo.io what it sees. Nothing is sent anywhere unless you press it.</p>
+
+      <button type="button" id="reconnect" class="ghost">Reconnect now</button>
+    </details>
+  </body>
+  <script type="module" src="popup.js"></script>
+</html>

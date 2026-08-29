@@ -1,0 +1,15 @@
+{
+  "name": "zagent",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Firefox extension that routes traffic through Hola's zagent proxy network",
+  "scripts": {
+    "test": "node --test",
+    "check": "node tools/check.mjs",
+    "build": "node tools/build.mjs",
+    "e2e": "node tools/loopback-e2e.mjs",
+    "e2e:hola": "node tools/e2e.mjs",
+    "bench": "node tools/bench.mjs"
+  }
+}

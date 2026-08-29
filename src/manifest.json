@@ -1,0 +1,40 @@
+{
+  "manifest_version": 2,
+  "name": "Zagent",
+  "version": "1.0.2",
+  "description": "Route Firefox through Hola's zagent proxy network. Pick a country, flip the switch.",
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "zagent@firefox-proxy-extension",
+      "strict_min_version": "142.0",
+      "data_collection_permissions": {
+        "required": [
+          "websiteContent"
+        ],
+        "optional": []
+      }
+    }
+  },
+  "permissions": [
+    "proxy",
+    "storage",
+    "alarms",
+    "privacy",
+    "webRequest",
+    "webRequestBlocking",
+    "<all_urls>"
+  ],
+  "background": {
+    "page": "background/index.html",
+    "persistent": true
+  },
+  "browser_action": {
+    "default_title": "Zagent",
+    "default_popup": "popup/popup.html",
+    "default_icon": "icons/off.svg"
+  },
+  "icons": {
+    "48": "icons/on.svg",
+    "96": "icons/on.svg"
+  }
+}

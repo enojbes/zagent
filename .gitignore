@@ -1,0 +1,6 @@
+node_modules/
+dist/
+*.xpi
+
+# Local tool permission state, specific to one machine.
+.claude/

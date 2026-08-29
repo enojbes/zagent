@@ -1,0 +1,381 @@
+:root {
+  --bg: #ffffff;
+  --fg: #15141a;
+  --muted: #5b5b66;
+  --line: #e0e0e6;
+  --field: #ffffff;
+  --hover: #f2f2f5;
+  --good: #147a3d;
+  --wait: #9a6100;
+  --bad: #c22e22;
+  --sel: #e8f1fd;
+  color-scheme: light dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #1c1b22;
+    --fg: #fbfbfe;
+    --muted: #b8b8c4;
+    --line: #3a3944;
+    --field: #2b2a33;
+    --hover: #35343f;
+    --good: #5ecb87;
+    --wait: #ffbd4f;
+    --bad: #ff8f8a;
+    --sel: #2f3b52;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+/* Any author rule that sets `display` outranks the UA sheet's [hidden], so a
+   hidden element quietly reappears. Settle it once, here. */
+[hidden] {
+  display: none !important;
+}
+
+body {
+  width: 320px;
+  margin: 0;
+  padding: 12px;
+  background: var(--bg);
+  color: var(--fg);
+  font: 13px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+
+header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.wordmark {
+  font-size: 15px;
+}
+
+.switch input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.track {
+  display: block;
+  width: 40px;
+  height: 22px;
+  border-radius: 11px;
+  background: var(--line);
+  transition: background 120ms ease;
+}
+
+.knob {
+  display: block;
+  width: 18px;
+  height: 18px;
+  margin: 2px;
+  border-radius: 50%;
+  background: var(--bg);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.35);
+  transition: transform 120ms ease;
+}
+
+.switch input:checked + .track {
+  background: var(--good);
+}
+
+.switch input:checked + .track .knob {
+  transform: translateX(18px);
+}
+
+.switch input:focus-visible + .track {
+  outline: 2px solid var(--fg);
+  outline-offset: 2px;
+}
+
+/* The switch shows what you asked for. This shows what is actually happening to
+   your traffic, which is not the same thing while a tunnel is down. */
+.status {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-left-width: 3px;
+  border-radius: 6px;
+}
+
+.status .dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  margin-top: 5px;
+  border-radius: 50%;
+  background: var(--muted);
+}
+
+.status-text {
+  min-width: 0;
+}
+
+.status-title {
+  display: block;
+  font-weight: 600;
+}
+
+.status-detail {
+  display: block;
+  color: var(--muted);
+  font-size: 11.5px;
+  overflow-wrap: anywhere;
+}
+
+.status[data-tone="good"] {
+  border-left-color: var(--good);
+}
+
+.status[data-tone="good"] .dot {
+  background: var(--good);
+}
+
+.status[data-tone="wait"] {
+  border-left-color: var(--wait);
+}
+
+.status[data-tone="wait"] .dot {
+  background: var(--wait);
+  animation: pulse 1.4s ease-in-out infinite;
+}
+
+.status[data-tone="bad"] {
+  border-left-color: var(--bad);
+}
+
+.status[data-tone="bad"] .dot {
+  background: var(--bad);
+}
+
+@keyframes pulse {
+  50% {
+    opacity: 0.35;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .status[data-tone="wait"] .dot,
+  .knob,
+  .track {
+    animation: none;
+    transition: none;
+  }
+}
+
+.warning {
+  margin: 8px 0 0;
+  padding: 7px 9px;
+  border: 1px solid var(--bad);
+  border-radius: 6px;
+  font-size: 11.5px;
+  line-height: 1.4;
+}
+
+.warning code {
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.exit {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-top: 8px;
+  padding: 0 2px;
+}
+
+.exit-value {
+  color: var(--muted);
+  font-size: 11.5px;
+  overflow-wrap: anywhere;
+}
+
+.link {
+  margin-left: auto;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-size: 11.5px;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.link.inline {
+  display: block;
+  margin: 3px 0 0;
+}
+
+.link:disabled {
+  color: var(--muted);
+  cursor: default;
+}
+
+.search,
+select,
+textarea {
+  width: 100%;
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--field);
+  color: inherit;
+  font: inherit;
+}
+
+.search {
+  margin-top: 10px;
+}
+
+textarea {
+  resize: vertical;
+}
+
+.countries {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
+  max-height: 210px;
+  overflow-y: auto;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+
+.countries li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  cursor: pointer;
+}
+
+.countries li:hover {
+  background: var(--hover);
+}
+
+.countries li.active {
+  background: var(--hover);
+  box-shadow: inset 2px 0 0 var(--fg);
+}
+
+.countries li[aria-selected="true"] {
+  background: var(--sel);
+  font-weight: 600;
+}
+
+.countries .flag {
+  font-size: 15px;
+  line-height: 1;
+}
+
+.countries .code {
+  margin-left: auto;
+  color: var(--muted);
+  font-size: 11px;
+  text-transform: uppercase;
+}
+
+.countries .divider {
+  padding: 3px 8px;
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 10px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  cursor: default;
+}
+
+.countries .divider:hover,
+.countries .empty:hover {
+  background: none;
+}
+
+.countries .empty {
+  padding: 10px;
+  color: var(--muted);
+  cursor: default;
+}
+
+details {
+  margin-top: 10px;
+  border-top: 1px solid var(--line);
+  padding-top: 8px;
+}
+
+summary {
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.row.check {
+  justify-content: flex-start;
+  align-items: flex-start;
+}
+
+.row.stack {
+  display: block;
+}
+
+.row.stack > span {
+  display: block;
+  margin-bottom: 4px;
+}
+
+.row select {
+  width: auto;
+  flex: 1;
+}
+
+.note {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.note.warn {
+  color: var(--bad);
+}
+
+.ghost {
+  margin-top: 10px;
+  padding: 5px 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--field);
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.ghost:hover {
+  background: var(--hover);
+}
