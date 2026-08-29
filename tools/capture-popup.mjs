@@ -127,6 +127,9 @@ function stop(child) {
 
 process.on("exit", () => {
   for (const child of started) stop(child);
+  // A run that throws part way through would otherwise leave its staging
+  // directory behind, and they accumulate silently.
+  rmSync(stage, { recursive: true, force: true });
 });
 
 function type(file) {
