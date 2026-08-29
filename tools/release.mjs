@@ -1,0 +1,43 @@
+/**
+ * Cuts a release: verifies, tags, pushes. CI does the signing, so nothing here
+ * needs an AMO credential on this machine.
+ *
+ * Usage: npm run release -- 1.0.3
+ */
+import { execFileSync } from "node:child_process";
+import { readFileSync, writeFileSync } from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+const ROOT = fileURLToPath(new URL("../", import.meta.url));
+const version = process.argv[2];
+
+if (!/^\d+\.\d+\.\d+$/.test(version ?? "")) {
+  console.error("Usage: npm run release -- <major.minor.patch>");
+  process.exit(2);
+}
+
+const run = (cmd, args) => execFileSync(cmd, args, { cwd: ROOT, stdio: "inherit" });
+const read = (cmd, args) => execFileSync(cmd, args, { cwd: ROOT, encoding: "utf8" }).trim();
+
+if (read("git", ["status", "--porcelain"]) !== "") {
+  console.error("Working tree is dirty. Commit or stash first.");
+  process.exit(1);
+}
+
+const manifestPath = path.join(ROOT, "src", "manifest.json");
+const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
+manifest.version = version;
+writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
+
+run(process.execPath, ["tools/check.mjs"]);
+run(process.execPath, ["--test"]);
+run(process.execPath, ["tools/loopback-e2e.mjs"]);
+
+run("git", ["add", "src/manifest.json"]);
+run("git", ["commit", "-m", `Release ${version}`]);
+run("git", ["tag", `v${version}`]);
+run("git", ["push", "origin", "main", "--follow-tags"]);
+
+console.log(`\nTagged v${version}. CI signs it and attaches the XPI to the release.`);
+console.log("https://github.com/belagrf/zagent/actions");

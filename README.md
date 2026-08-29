@@ -25,18 +25,31 @@ That buys three things a local HTTP proxy cannot give you.
 Temporary Add-on*, and pick `src/manifest.json`. It works immediately and
 disappears when you restart Firefox.
 
-**To keep it.** Build the archive and get it signed as an unlisted add-on.
+**To keep it.** Releases are signed by CI. Bump, verify and tag in one step:
 
 ```bash
-npm run build
+npm run release -- 1.0.3
 ```
 
-That writes `dist/zagent-<version>.zip`. Upload it at
-[addons.mozilla.org](https://addons.mozilla.org/developers/addon/submit/upload-unlisted)
-as **On your own** (unlisted). Automated review signs it in a minute or two and
-gives you an XPI you can install permanently. A *listed* submission would go to
+That checks, tests, runs the browser harness, writes the version into the
+manifest, tags, and pushes. GitHub Actions then signs through the AMO API and
+attaches the XPI to a [GitHub Release](https://github.com/belagrf/zagent/releases).
+
+It needs two repository secrets, from the
+[AMO API key page](https://addons.mozilla.org/en-US/developers/addon/api/key/):
+
+| Secret | Value |
+|---|---|
+| `AMO_JWT_ISSUER` | the JWT issuer, `user:12345:67` |
+| `AMO_JWT_SECRET` | the JWT secret |
+
+Submissions are **unlisted**, so automated review signs them in a minute or two
+and they never appear in the AMO gallery. A *listed* submission would go to
 human review, which a Hola client is unlikely to survive, for the same reason
 Hola's own extension is no longer on AMO.
+
+To build an unsigned archive by hand, `npm run build` still writes
+`dist/zagent-<version>.zip`.
 
 **Private windows.** Firefox does not run extensions in private windows by
 default. Open `about:addons`, find Zagent, and set *Run in Private Windows* to
@@ -170,6 +183,7 @@ and are not part of this list.
     src/popup/                 the panel
     tools/check.mjs            manifest, syntax, imports, CSP, dangling refs
     tools/build.mjs            check, test, zip
+    tools/release.mjs          verify, tag, push; CI signs
     tools/loopback-e2e.mjs     drive a real Firefox against a stand-in agent
     tools/e2e.mjs              drive a real Firefox against Hola, check the exit address
     tools/bench.mjs            cost of the per-request decision
@@ -260,6 +274,19 @@ latency to the first request after every idle gap, and a user who never grants
 `<all_urls>` gets an extension that silently does nothing. MV2 with a persistent
 background page keeps the decision in memory and answers synchronously. Mozilla
 continues to support MV2, and AMO accepts it.
+
+## Why there is no auto-update
+
+An unlisted add-on updates itself only if the manifest carries an `update_url`
+pointing at a JSON manifest you host, and AMO does not serve that for unlisted
+add-ons. This repository is private, so GitHub Releases are not a public host
+and cannot fill that role.
+
+That is a deliberate trade. A private repository keeps a Hola client off the
+public record, which matters given AMO's note that unlisted add-ons stay subject
+to manual review. The cost is installing a new XPI by hand, which for an add-on
+that changes rarely is a ten second job. Making the repository public would let
+you host `updates.json` from a Release and get automatic updates.
 
 ## Credit
 
