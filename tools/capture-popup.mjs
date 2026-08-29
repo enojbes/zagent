@@ -143,7 +143,7 @@ function shim() {
   return `const COUNTRIES = ${JSON.stringify(
     "ae ar at au bd be bg br ca ch cl co cz de dk eg es fi fr gr hk hr hu id ie il in is it jp kr mx nl no nz pl pt ro ru sa se sg sk tr uk us ve".split(" "),
   )};
-const base = { enabled: true, country: "tr", proxyType: "direct", failClosed: true, blockWebRTC: true, noPrediction: true, bypass: [], recent: ["tr", "de", "us"] };
+const base = { enabled: true, country: "tr", proxyType: "direct", failClosed: true, blockWebRTC: true, noPrediction: true, bypass: [], pinned: ["tr", "de", "us"] };
 const agents = ["zagent417.hola.org"];
 const STATES = {
   on: { state: { status: "on", country: "tr", agents, error: null, fatal: false, retryAt: null }, settings: base, privateAllowed: true },

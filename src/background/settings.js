@@ -12,7 +12,7 @@
  * @property {boolean}  noPrediction Stop DNS prefetch and speculative connections.
  * @property {string[]} bypass      Hostnames kept off the tunnel. An entry also covers
  *                                  its subdomains.
- * @property {string[]} recent      Recently chosen countries, most recent first.
+ * @property {string[]} pinned      Countries the user pinned to the top of the list.
  */
 
 /** @type {Readonly<Settings>} */
@@ -24,7 +24,7 @@ export const DEFAULTS = Object.freeze({
   blockWebRTC: true,
   noPrediction: true,
   bypass: [],
-  recent: [],
+  pinned: [],
 });
 
 /** Shown until the first vpn_countries.json fetch lands. */
@@ -35,8 +35,8 @@ export const SEED_COUNTRIES = Object.freeze([
   "pt", "ro", "ru", "sa", "se", "sg", "sk", "tr", "uk", "us", "ve",
 ]);
 
-/** Enough to cover the two or three places someone actually switches between. */
-export const RECENT_MAX = 4;
+/** A pinned list longer than this stops being a shortcut. */
+export const PINNED_MAX = 8;
 
 const KEY = "settings";
 const COUNTRIES_KEY = "countries";
@@ -52,14 +52,22 @@ export async function load() {
  * @returns {Promise<Settings>}
  */
 export async function save(patch) {
-  const before = await load();
-  const merged = { ...before, ...patch };
-  if (typeof patch.country === "string" && patch.country !== before.country) {
-    merged.recent = [patch.country, ...before.recent.filter((c) => c !== patch.country)].slice(0, RECENT_MAX);
-  }
-  const next = sanitize(merged);
+  const next = sanitize({ ...(await load()), ...patch });
   await browser.storage.local.set({ [KEY]: next });
   return next;
+}
+
+/**
+ * Pinning is deliberately manual. Ordering the list by what you happened to use
+ * last guesses at a workflow; a pin is something you decided.
+ *
+ * @param {string} code
+ * @returns {Promise<Settings>}
+ */
+export async function togglePinned(code) {
+  const current = (await load()).pinned;
+  const pinned = current.includes(code) ? current.filter((c) => c !== code) : [...current, code];
+  return save({ pinned });
 }
 
 /** @returns {Promise<{ codes: string[], fetchedAt: number }>} */
@@ -101,7 +109,7 @@ function sanitize(raw) {
     blockWebRTC: v.blockWebRTC !== false,
     noPrediction: v.noPrediction !== false,
     bypass: Array.isArray(v.bypass) ? normalizeBypass(v.bypass) : [],
-    recent: Array.isArray(v.recent) ? v.recent.filter(isCountryCode).slice(0, RECENT_MAX) : [],
+    pinned: Array.isArray(v.pinned) ? [...new Set(v.pinned.filter(isCountryCode))].slice(0, PINNED_MAX) : [],
   };
 }
 

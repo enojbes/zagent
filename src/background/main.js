@@ -174,6 +174,11 @@ browser.runtime.onMessage.addListener((msg) => {
         await apply(next);
         return snapshot();
       });
+    case "pin":
+      return settings.togglePinned(msg.code).then(async (next) => {
+        current = next;
+        return snapshot();
+      });
     case "refresh":
       session.refresh("requested from the popup", 0);
       return snapshot();

@@ -219,33 +219,48 @@ function paintTypeNote(type) {
 function renderCountries() {
   const query = el.search.value.trim().toLowerCase();
   const selected = pendingCountry ?? snapshot.settings.country;
-  const all = snapshot.countries.map((code) => ({ code, name: nameOf(code) }));
+  const pinned = new Set(snapshot.settings.pinned);
   const match = (c) => query === "" || c.name.toLowerCase().includes(query) || c.code.includes(query);
+  const all = snapshot.countries
+    .map((code) => ({ code, name: nameOf(code), pinned: pinned.has(code) }))
+    .filter(match)
+    .sort((a, b) => a.name.localeCompare(b.name));
 
-  const recent = query === "" ? snapshot.settings.recent.filter((code) => snapshot.countries.includes(code)) : [];
-  const recentSet = new Set(recent);
-  const rest = all.filter((c) => match(c) && !recentSet.has(c.code)).sort((a, b) => a.name.localeCompare(b.name));
+  // Pins only lead the list when it is the whole list. Once you are searching,
+  // a match buried under pins is worse than plain alphabetical order.
+  const lead = query === "" ? all.filter((c) => c.pinned) : [];
+  const rest = query === "" ? all.filter((c) => !c.pinned) : all;
 
-  rows = [...recent.map((code) => ({ code, name: nameOf(code) })), ...rest];
+  rows = [...lead, ...rest];
   cursor = rows.findIndex((r) => r.code === selected);
 
   const frag = document.createDocumentFragment();
   if (rows.length === 0) frag.append(plain("empty", "No match"));
   rows.forEach((row, index) => {
-    if (recent.length !== 0 && index === recent.length) frag.append(plain("divider", "All countries"));
+    if (lead.length !== 0 && index === lead.length) frag.append(plain("divider", "All countries"));
     frag.append(option(row, selected));
   });
   el.countries.replaceChildren(frag);
   paintCursor();
 }
 
-function option({ code, name }, selected) {
+function option({ code, name, pinned }, selected) {
   const li = document.createElement("li");
   li.id = `country-${code}`;
   li.dataset.code = code;
   li.setAttribute("role", "option");
   li.setAttribute("aria-selected", String(code === selected));
-  li.append(span("flag", flagOf(code)), span("name", name), span("code", code));
+
+  const pin = document.createElement("button");
+  pin.type = "button";
+  pin.className = "pin";
+  pin.dataset.pin = code;
+  pin.textContent = pinned ? "★" : "☆";
+  pin.setAttribute("aria-pressed", String(pinned));
+  pin.title = pinned ? `Unpin ${name}` : `Pin ${name} to the top`;
+  pin.setAttribute("aria-label", pin.title);
+
+  li.append(span("flag", flagOf(code)), span("name", name), span("code", code), pin);
   return li;
 }
 
@@ -304,6 +319,11 @@ function wire() {
   });
 
   el.countries.addEventListener("click", (event) => {
+    const pin = event.target.closest("[data-pin]");
+    if (pin !== null) {
+      patch(null, { type: "pin", code: pin.dataset.pin });
+      return;
+    }
     const code = event.target.closest("li")?.dataset.code;
     if (code !== undefined) pickCountry(code);
   });
@@ -345,7 +365,8 @@ function wire() {
  * Closing the popup commits the last pick, so a click then a close is not lost.
  */
 function pickCountry(code) {
-  if (code === (pendingCountry ?? snapshot.settings.country)) return;
+  const already = code === (pendingCountry ?? snapshot.settings.country) && snapshot.settings.enabled;
+  if (already) return;
   pendingCountry = code;
   renderCountries();
   if (pickTimer !== null) clearTimeout(pickTimer);
@@ -358,7 +379,8 @@ function commitPick() {
   if (pendingCountry === null) return;
   const code = pendingCountry;
   pendingCountry = null;
-  patch({ country: code });
+  // Picking a country is the act of connecting to it, so this switches on too.
+  patch({ country: code, enabled: true });
 }
 
 async function reconnect() {
@@ -366,8 +388,12 @@ async function reconnect() {
   apply(await browser.runtime.sendMessage({ type: "refresh" }));
 }
 
-async function patch(values) {
-  apply(await browser.runtime.sendMessage({ type: "patch", patch: values }));
+/**
+ * @param {object | null} values Settings to change, or null when sending `message`.
+ * @param {object} [message] A message other than a settings patch.
+ */
+async function patch(values, message) {
+  apply(await browser.runtime.sendMessage(message ?? { type: "patch", patch: values }));
 }
 
 async function verifyExit() {

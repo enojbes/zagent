@@ -98,8 +98,17 @@ block, because retrying through a block is what causes blocks.
 the agent chain changes so it cannot go stale. It is the only thing here that
 contacts a third party, and only when you press it.
 
-The country list keeps your last four at the top. The panel does not grab focus
-when it opens; typing anywhere filters. Arrows move, Enter picks, Escape clears.
+**Clicking a country connects to it.** If the tunnel is off it comes on; if it
+is already up elsewhere it moves. A click that only changed a setting and waited
+for you to find the switch was a click that appeared to do nothing.
+
+Pin countries with the star to keep them at the top. Pins are yours to set, not
+inferred from what you happened to use last. They step aside while you are
+searching, since a match buried under pins is worse than plain alphabetical
+order.
+
+The panel does not grab focus when it opens; typing anywhere filters. Arrows
+move, Enter picks, Escape clears.
 
 ## Settings
 

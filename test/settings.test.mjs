@@ -76,29 +76,36 @@ test("the tunnel cannot arm without somewhere to connect to", async () => {
   assert.equal(armed.enabled, true);
 });
 
-test("choosing a country pushes it to the front of the recent list", async () => {
+test("pinning is manual and toggles", async () => {
+  assert.deepEqual((await settings.load()).pinned, [], "nothing is pinned for you");
+
+  await settings.togglePinned("tr");
+  await settings.togglePinned("de");
+  assert.deepEqual((await settings.load()).pinned, ["tr", "de"]);
+
+  await settings.togglePinned("tr");
+  assert.deepEqual((await settings.load()).pinned, ["de"], "pinning again unpins");
+});
+
+test("using a country does not pin it", async () => {
   await settings.save({ country: "de" });
   await settings.save({ country: "nl" });
-  await settings.save({ country: "tr" });
-  assert.deepEqual((await settings.load()).recent, ["tr", "nl", "de"]);
-
-  await settings.save({ country: "nl" });
-  assert.deepEqual((await settings.load()).recent, ["nl", "tr", "de"], "no duplicates, most recent first");
+  assert.deepEqual((await settings.load()).pinned, [], "the list reflects decisions, not history");
 });
 
-test("the recent list is capped and survives unrelated saves", async () => {
-  for (const c of ["de", "nl", "us", "gr", "jp"]) await settings.save({ country: c });
-  const recent = (await settings.load()).recent;
-  assert.equal(recent.length, settings.RECENT_MAX);
-  assert.deepEqual(recent, ["jp", "gr", "us", "nl"]);
+test("the pin list is capped, deduped and survives unrelated saves", async () => {
+  store.settings = { pinned: ["tr", "tr", "de", "nl", "us", "gr", "jp", "it", "es", "fr", "pl"] };
+  const pinned = (await settings.load()).pinned;
+  assert.equal(pinned.length, settings.PINNED_MAX);
+  assert.equal(new Set(pinned).size, pinned.length, "no duplicates");
 
   await settings.save({ blockWebRTC: false });
-  assert.deepEqual((await settings.load()).recent, recent, "toggling something else leaves it alone");
+  assert.deepEqual((await settings.load()).pinned, pinned, "toggling something else leaves it alone");
 });
 
-test("a garbage recent list from storage is discarded", async () => {
-  store.settings = { recent: ["tr", 7, "not-a-country", "de"] };
-  assert.deepEqual((await settings.load()).recent, ["tr", "de"]);
+test("a garbage pin list from storage is discarded", async () => {
+  store.settings = { pinned: ["tr", 7, "not-a-country", "de"] };
+  assert.deepEqual((await settings.load()).pinned, ["tr", "de"]);
 });
 
 test("bypass entries are reduced to bare hostnames", () => {

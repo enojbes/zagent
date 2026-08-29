@@ -8,7 +8,7 @@ No dependencies. Node 24 or newer.
 npm test
 ```
 
-61 tests. The interesting ones are `test/router.test.mjs`, where `hostOf` is
+62 tests. The interesting ones are `test/router.test.mjs`, where `hostOf` is
 checked against the platform URL parser over a corpus,
 `test/session.test.mjs`, where the whole lifecycle runs against a stubbed
 `fetch` with mocked timers, and `test/main.test.mjs`, which stubs the
