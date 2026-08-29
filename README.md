@@ -33,7 +33,7 @@ npm run release -- 1.0.3
 
 That checks, tests, runs the browser harness, writes the version into the
 manifest, tags, and pushes. GitHub Actions then signs through the AMO API and
-attaches the XPI to a [GitHub Release](https://github.com/belagrf/zagent/releases).
+attaches the XPI to a [GitHub Release](https://github.com/enojbes/zagent/releases).
 
 It needs two repository secrets, from the
 [AMO API key page](https://addons.mozilla.org/en-US/developers/addon/api/key/):
@@ -217,6 +217,8 @@ and are not part of this list.
     tools/check.mjs            manifest, syntax, imports, CSP, dangling refs
     tools/build.mjs            check, test, zip
     tools/release.mjs          verify, tag, push; CI signs
+    tools/update-manifest.mjs  rewrite updates.json for a release
+    updates.json               what Firefox polls to find new versions
     tools/loopback-e2e.mjs     drive a real Firefox against a stand-in agent
     tools/e2e.mjs              drive a real Firefox against Hola, check the exit address
     tools/bench.mjs            cost of the per-request decision
@@ -309,18 +311,29 @@ latency to the first request after every idle gap, and a user who never grants
 background page keeps the decision in memory and answers synchronously. Mozilla
 continues to support MV2, and AMO accepts it.
 
-## Why there is no auto-update
+## How updating works
 
-An unlisted add-on updates itself only if the manifest carries an `update_url`
-pointing at a JSON manifest you host, and AMO does not serve that for unlisted
-add-ons. This repository is private, so GitHub Releases are not a public host
-and cannot fill that role.
+AMO signs unlisted add-ons but does not serve updates for them, so the add-on
+has to point at an update manifest hosted somewhere public. That is what
+`updates.json` at the root of this repository is, reached over
+`raw.githubusercontent.com`, and it is why the repository is public.
 
-That is a deliberate trade. A private repository keeps a Hola client off the
-public record, which matters given AMO's note that unlisted add-ons stay subject
-to manual review. The cost is installing a new XPI by hand, which for an add-on
-that changes rarely is a ten second job. Making the repository public would let
-you host `updates.json` from a Release and get automatic updates.
+Each release does four things: signs through the AMO API, attaches the XPI to a
+GitHub Release, rewrites `updates.json` to name that release, and commits it
+back to `main`. Firefox polls the manifest, compares versions, checks the
+`update_hash` against the download and installs it.
+
+The hash is the part worth noticing. Without it a compromised release asset
+would be trusted purely because it came from the expected URL.
+
+**The first install is manual, exactly once.** A copy that is already installed
+carries whatever `update_url` it shipped with, and versions before 1.0.5 shipped
+with none. Install the first 1.0.5-or-later XPI by hand and every version after
+it arrives on its own.
+
+`tools/check.mjs` refuses to pass if the add-on id in `updates.json` disagrees
+with the manifest, because that mismatch does not fail loudly. It just means
+updates never arrive.
 
 ## Credit
 

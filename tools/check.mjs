@@ -19,6 +19,7 @@ checkSyntax();
 checkImports();
 checkHtml();
 checkManifestReferences();
+checkUpdateManifest();
 
 if (problems.length !== 0) {
   console.error(`${problems.length} problem${problems.length === 1 ? "" : "s"}:`);
@@ -124,6 +125,29 @@ function checkManifestReferences() {
       const target = path.join(SRC, match[1].slice(1));
       if (!existsSync(target)) fail(source, `references "${match[1]}", which does not exist`);
     }
+  }
+}
+
+/**
+ * An add-on id that disagrees with the update manifest does not fail. It just
+ * means updates never arrive, which is the kind of thing you notice months late.
+ */
+function checkUpdateManifest() {
+  const gecko = manifest.browser_specific_settings?.gecko ?? {};
+  const file = path.join(SRC, "..", "updates.json");
+  if (gecko.update_url === undefined) return;
+
+  if (!existsSync(file)) {
+    fail("updates.json", `manifest points at ${gecko.update_url} but no updates.json exists`);
+    return;
+  }
+  const updates = JSON.parse(readFileSync(file, "utf8"));
+  const ids = Object.keys(updates.addons ?? {});
+  if (!ids.includes(gecko.id)) {
+    fail("updates.json", `lists ${ids.join(", ") || "nothing"}, but the add-on id is ${gecko.id}`);
+  }
+  if (!gecko.update_url.endsWith("/updates.json")) {
+    fail("manifest.json", `update_url does not end in /updates.json: ${gecko.update_url}`);
   }
 }
 
