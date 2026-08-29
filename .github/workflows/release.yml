@@ -62,6 +62,14 @@ jobs:
             echo "already=false" >> "$GITHUB_OUTPUT"
           fi
 
+      # A mistyped secret otherwise surfaces at the signing step, which is after
+      # the tag exists. Ask AMO who we are first; it publishes nothing.
+      - name: Check the AMO credentials
+        env:
+          WEB_EXT_API_KEY: ${{ secrets.AMO_JWT_ISSUER }}
+          WEB_EXT_API_SECRET: ${{ secrets.AMO_JWT_SECRET }}
+        run: node tools/check-amo-credentials.mjs
+
       - name: Sign through the AMO API
         if: startsWith(github.ref, 'refs/tags/v') && !inputs.dry_run && steps.released.outputs.already != 'true'
         env:

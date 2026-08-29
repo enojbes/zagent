@@ -229,6 +229,7 @@ continues to support MV2, and AMO accepts it.
     tools/e2e.mjs              drive a real Firefox against Hola
     tools/bench.mjs            cost of the per-request decision
     tools/probe-types.mjs      what each exit type actually gives you
+    tools/check-amo-credentials.mjs  confirm signing will work before tagging
     updates.json               what Firefox polls to find new versions
 
 `main.js` is the only module that touches `browser.*`, which is what lets the
@@ -295,7 +296,17 @@ signs through the AMO API, attaches the XPI to a GitHub Release, rewrites
 
 It needs two repository secrets from the
 [AMO API key page](https://addons.mozilla.org/en-US/developers/addon/api/key/):
-`AMO_JWT_ISSUER` and `AMO_JWT_SECRET`.
+`AMO_JWT_ISSUER` and `AMO_JWT_SECRET`. The release job checks them against AMO
+before it signs, so a mistyped secret fails before a tag exists rather than
+after. To check them without releasing anything:
+
+```bash
+WEB_EXT_API_KEY=… WEB_EXT_API_SECRET=… node tools/check-amo-credentials.mjs
+```
+
+Re-pushing a tag for a version already released is a no-op rather than a failure.
+Note that Actions runs the workflow file as it stood at the tagged commit, so
+changes to the release job only take effect for tags cut after them.
 
 Submissions are **unlisted**, so automated review signs them in a minute or two
 and they never appear in the AMO gallery. A *listed* submission would go to
