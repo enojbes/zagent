@@ -47,6 +47,13 @@ const TYPE_NOTES = {
   virt: "A pool Hola appears to fill only for Brazil and Japan. Expect it to fail everywhere else.",
 };
 const RISKY_TYPES = new Set(["peer", "lum"]);
+const TYPE_LABELS = {
+  direct: "Datacenter",
+  pool: "Datacenter pool",
+  lum: "Residential",
+  peer: "Peer",
+  virt: "Virtual pool",
+};
 
 /** @type {{ state: any, settings: any, countries: string[], privateAllowed: boolean } | null} */
 let snapshot = null;
@@ -113,11 +120,22 @@ function paintStatus(state, settings) {
   let detail = `Traffic is going out on your own address. Ready to connect to ${country}.`;
 
   if (state.status === "on") {
+    const agent = state.agents[0] ?? "an agent";
+    const asked = state.country !== settings.country || state.proxyType !== settings.proxyType;
     tone = state.stale ? "wait" : "good";
     title = `Connected · ${nameOf(state.country)}`;
-    detail = state.stale
-      ? `via ${state.agents[0] ?? "an agent"}. Could not reach Hola to refresh; retrying ${whenFrom(state.retryAt)}.`
-      : `via ${state.agents[0] ?? "an agent"}`;
+    if (!state.stale) {
+      detail = `via ${agent}`;
+    } else if (asked) {
+      // Saying "connected" while quietly serving a different country than the
+      // one selected would be the same lie the status block exists to prevent.
+      detail =
+        `Could not switch to ${nameOf(settings.country)} ${TYPE_LABELS[settings.proxyType] ?? settings.proxyType}, ` +
+        `Hola is unreachable. Still on ${nameOf(state.country)} ${TYPE_LABELS[state.proxyType] ?? state.proxyType} ` +
+        `via ${agent}. Retrying ${whenFrom(state.retryAt)}.`;
+    } else {
+      detail = `via ${agent}. Could not reach Hola to refresh; retrying ${whenFrom(state.retryAt)}.`;
+    }
   } else if (state.status === "connecting") {
     tone = "wait";
     title = "Connecting";

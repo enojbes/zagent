@@ -76,6 +76,11 @@ export function setRoute(tunnels, authHeader) {
   pending = null;
 }
 
+/** Whether traffic currently has somewhere to go. */
+export function hasRoute() {
+  return route !== null;
+}
+
 export function clearRoute() {
   route = null;
   pending = null;

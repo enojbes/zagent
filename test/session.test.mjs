@@ -280,6 +280,45 @@ test("a recovered refresh clears the stale flag", async (t) => {
   assert.equal(host(), "zagent-b.hola.org");
 });
 
+test("a switch that cannot happen does not cost you the tunnel you had", async (t) => {
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  session.start(SETTINGS);
+  await settle();
+  assert.equal(host(), "zagent-a.hola.org");
+
+  // Hola blocks the address, then the user tries a different exit type.
+  onInit = async () => ({ blocked: true, permanent: false });
+  onTunnels = async () => ({ blocked: true, permanent: false });
+  session.start({ country: "tr", proxyType: "lum" });
+  await settle();
+
+  assert.equal(session.state.status, "on", "the working tunnel survives the attempt");
+  assert.equal(host(), "zagent-a.hola.org");
+  assert.equal(session.state.proxyType, "direct", "state reports what is serving, not what was asked");
+  assert.equal(session.state.stale, true);
+});
+
+test("the retry after a failed switch aims at what was asked for", async (t) => {
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  session.start(SETTINGS);
+  await settle();
+
+  onInit = async () => ({ blocked: true, permanent: false });
+  onTunnels = async () => ({ blocked: true, permanent: false });
+  session.start({ country: "de", proxyType: "direct" });
+  await settle();
+  assert.equal(session.state.country, "tr", "still serving the old country");
+
+  onInit = async () => INIT;
+  onTunnels = async () => tunnelsFor("de");
+  t.mock.timers.tick(70 * 60_000);
+  await settle();
+
+  assert.equal(session.state.country, "de", "the retry went for what the user wanted");
+  assert.equal(session.state.stale, false);
+  assert.equal(host(), "zagent-de.hola.org");
+});
+
 test("refreshing keeps the old route serving until the new one lands", async () => {
   session.start(SETTINGS);
   await settle();

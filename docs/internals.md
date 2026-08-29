@@ -60,12 +60,25 @@ the ban lives on Hola's API, not on the agents. Once you hold an agent hostname
 and port, it keeps proxying regardless. Curiously, offering no credentials fares
 better than offering wrong ones.
 
+This also explains a question that looks paradoxical from the outside: why
+Datacenter keeps working during a block while Residential will not connect.
+Datacenter is already connected, and its agent does not care about the block.
+Residential is a different `country` parameter, so reaching it needs a
+`zgettunnels` call, which the block refuses.
+
 The extension keeps sending its credentials, the way Hola's own client does.
 What this changes is failure handling. A refresh that cannot reach the API is
 not evidence that the tunnel is dead, so `Session.fail` no longer discards a
 route that is still carrying traffic. It marks the session stale, keeps serving,
-and retries in the background. Only a session with nothing live to lose tears
-its route down.
+and retries in the background.
+
+Switching country or exit type is handled the same way, with one difference.
+Traffic is parked for the duration rather than served through the exit the user
+just moved away from, because asking for Germany and silently getting Turkey is
+the same kind of lie the status block exists to prevent. The old credentials are
+kept, so a switch that cannot happen puts the working tunnel back rather than
+leaving nothing. The panel then reports what is actually serving alongside what
+was asked for, and the retry aims at what was asked for.
 
 ## Fail-closed
 

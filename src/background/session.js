@@ -43,6 +43,10 @@ export class Session {
     this.state = { status: "off", country: "", proxyType: "direct", error: null, fatal: false, stale: false, agents: [], retryAt: null, since: Date.now() };
     /** @type {hola.Identity | null} */
     this.identity = null;
+    /** What is actually carrying traffic, which is not always what was asked for. */
+    this.serving = null;
+    /** What the user last asked for. Retries aim here, not at what is serving. */
+    this.wanted = null;
     /** @type {AbortController | null} */
     this.abort = null;
     /** @type {ReturnType<typeof setTimeout> | null} */
@@ -64,15 +68,32 @@ export class Session {
 
     this.cancel();
     router.setArmed(true);
-    router.clearRoute();
+    this.wanted = { country: settings.country, proxyType: settings.proxyType };
     this.attempt = 0;
     this.blocks = 0;
-    this.set({ status: "connecting", country: settings.country, proxyType: settings.proxyType, error: null, fatal: false, stale: false, agents: [], retryAt: null });
+
+    // Park traffic rather than serve the country the user just moved away from.
+    // `serving` keeps the old credentials so a switch that cannot happen can put
+    // the working tunnel back instead of leaving nothing.
+    router.clearRoute();
+
+    this.set({
+      status: "connecting",
+      country: settings.country,
+      proxyType: settings.proxyType,
+      error: null,
+      fatal: false,
+      stale: false,
+      agents: [],
+      retryAt: null,
+    });
     this.run();
   }
 
   stop() {
     this.cancel();
+    this.serving = null;
+    this.wanted = null;
     router.setArmed(false);
     this.set({ status: "off", error: null, fatal: false, stale: false, agents: [], retryAt: null });
   }
@@ -87,6 +108,9 @@ export class Session {
    */
   refresh(reason, minGapMs = 60_000, newIdentity = false) {
     if (this.state.status === "off") return;
+    // A retry is aiming at whatever the user last asked for, not at whatever
+    // happens to be serving after a failed switch.
+    if (this.wanted !== null) this.set({ ...this.wanted });
     if (Date.now() - this.lastRefreshAt < minGapMs) return;
     console.info(`[zagent] refreshing tunnel: ${reason}`);
     if (newIdentity) this.identity = null;
@@ -108,20 +132,20 @@ export class Session {
     this.lastRefreshAt = Date.now();
     const timer = setTimeout(() => controller.abort(), HANDSHAKE_TIMEOUT_MS);
 
-    const live = this.state.status === "on";
     const work = this.connect(controller.signal);
-    if (!live) router.holdFor(work);
+    if (!router.hasRoute()) router.holdFor(work);
 
     try {
       const creds = await work;
       if (this.abort !== controller) return;
       router.setRoute(creds.tunnels, creds.authHeader);
+      this.serving = { country: this.state.country, proxyType: this.state.proxyType, creds };
       this.attempt = 0;
       this.blocks = 0;
       this.set({ status: "on", error: null, fatal: false, stale: false, agents: creds.tunnels.map((t) => t.host), retryAt: null });
     } catch (err) {
       if (this.abort !== controller) return;
-      this.fail(err, live);
+      this.fail(err);
     } finally {
       clearTimeout(timer);
       if (this.abort === controller) this.abort = null;
@@ -154,21 +178,33 @@ export class Session {
    * @param {unknown} err
    * @param {boolean} live Whether a working tunnel was already carrying traffic.
    */
-  fail(err, live = false) {
+  fail(err) {
     const holaErr = err instanceof hola.HolaError ? err : null;
     const message = err instanceof Error ? err.message : String(err);
 
     // Agents keep proxying long after Hola's API stops answering, so a failed
-    // refresh is no reason to tear down a tunnel that is still working. Only
-    // give up the route when there was nothing carrying traffic to begin with.
-    if (live) {
+    // handshake is no reason to be left with nothing. Put back whatever was
+    // working before the attempt.
+    if (this.serving !== null && holaErr?.permanent !== true) {
+      router.setRoute(this.serving.creds.tunnels, this.serving.creds.authHeader);
       const delay = this.nextDelay(holaErr) * (0.75 + Math.random() * 0.5);
-      this.set({ stale: true, error: message, retryAt: Date.now() + delay });
-      console.warn(`[zagent] could not refresh (${message}); keeping the current tunnel, retrying in ${Math.round(delay / 1000)}s`);
+      // The state has to describe what is carrying traffic, not what was asked
+      // for, or the panel reports a country the user is not actually using.
+      this.set({
+        status: "on",
+        country: this.serving.country,
+        proxyType: this.serving.proxyType,
+        agents: this.serving.creds.tunnels.map((t) => t.host),
+        stale: true,
+        error: message,
+        retryAt: Date.now() + delay,
+      });
+      console.warn(`[zagent] could not reach Hola (${message}); still serving ${this.serving.country}, retrying in ${Math.round(delay / 1000)}s`);
       this.scheduleRetry(delay, true);
       return;
     }
 
+    this.serving = null;
     router.clearRoute();
     if (holaErr?.permanent === true) {
       this.set({ status: "error", error: message, fatal: true, stale: false, agents: [], retryAt: null });
@@ -188,7 +224,10 @@ export class Session {
   scheduleRetry(delay, keepServing) {
     this.retryTimer = setTimeout(() => {
       this.retryTimer = null;
-      if (!keepServing) this.set({ status: "connecting", retryAt: null });
+      // Aim at what the user asked for, not at whatever is serving after a
+      // switch that could not happen.
+      if (keepServing) this.set({ ...this.wanted, retryAt: null });
+      else this.set({ status: "connecting", retryAt: null });
       this.run();
     }, delay);
   }
