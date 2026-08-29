@@ -34,8 +34,12 @@ run(process.execPath, ["tools/check.mjs"]);
 run(process.execPath, ["--test"]);
 run(process.execPath, ["tools/loopback-e2e.mjs"]);
 
-run("git", ["add", "src/manifest.json"]);
-run("git", ["commit", "-m", `Release ${version}`]);
+// The manifest may already carry this version, in which case there is nothing
+// to commit and the tag is the only thing missing.
+if (read("git", ["status", "--porcelain", "src/manifest.json"]) !== "") {
+  run("git", ["add", "src/manifest.json"]);
+  run("git", ["commit", "-m", `Release ${version}`]);
+}
 run("git", ["tag", `v${version}`]);
 run("git", ["push", "origin", "main", "--follow-tags"]);
 
