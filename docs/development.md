@@ -8,10 +8,12 @@ No dependencies. Node 24 or newer.
 npm test
 ```
 
-49 tests. The interesting ones are `test/router.test.mjs`, where `hostOf` is
-checked against the platform URL parser over a corpus, and
+61 tests. The interesting ones are `test/router.test.mjs`, where `hostOf` is
+checked against the platform URL parser over a corpus,
 `test/session.test.mjs`, where the whole lifecycle runs against a stubbed
-`fetch` with mocked timers.
+`fetch` with mocked timers, and `test/main.test.mjs`, which stubs the
+WebExtension APIs, captures the listeners `main.js` registers, and drives it
+through those rather than adding exports only tests would use.
 
 ```bash
 npm run check
