@@ -9,6 +9,10 @@
  *
  * @typedef {"off" | "connecting" | "on" | "error"} Status
  *
+ * `state` reports what is carrying traffic. `wanted` holds what the user asked
+ * for. Keeping them apart is what stops the panel claiming a country the tunnel
+ * is not actually using, which it did while those two were one field.
+ *
  * @typedef {object} State
  * @property {Status} status
  * @property {string} country
@@ -63,14 +67,21 @@ export class Session {
    * @param {import("./settings.js").Settings} settings
    */
   start(settings) {
-    const sameTarget = this.state.country === settings.country && this.state.proxyType === settings.proxyType;
-    if (sameTarget && (this.state.status === "on" || this.state.status === "connecting")) return;
+    // Compare against what was asked for, not what is serving. After a switch
+    // that could not happen those differ, and comparing state would restart a
+    // retry that is already in flight and reset its backoff.
+    const sameTarget =
+      this.wanted !== null &&
+      this.wanted.country === settings.country &&
+      this.wanted.proxyType === settings.proxyType;
+    if (sameTarget && this.state.status !== "off") return;
 
     this.cancel();
     router.setArmed(true);
     this.wanted = { country: settings.country, proxyType: settings.proxyType };
     this.attempt = 0;
-    this.blocks = 0;
+    // `blocks` deliberately survives: a block belongs to the address, not to the
+    // country, so changing target must not reset the escalating cooldown.
 
     // Park traffic rather than serve the country the user just moved away from.
     // `serving` keeps the old credentials so a switch that cannot happen can put
@@ -108,9 +119,6 @@ export class Session {
    */
   refresh(reason, minGapMs = 60_000, newIdentity = false) {
     if (this.state.status === "off") return;
-    // A retry is aiming at whatever the user last asked for, not at whatever
-    // happens to be serving after a failed switch.
-    if (this.wanted !== null) this.set({ ...this.wanted });
     if (Date.now() - this.lastRefreshAt < minGapMs) return;
     console.info(`[zagent] refreshing tunnel: ${reason}`);
     if (newIdentity) this.identity = null;
@@ -132,17 +140,27 @@ export class Session {
     this.lastRefreshAt = Date.now();
     const timer = setTimeout(() => controller.abort(), HANDSHAKE_TIMEOUT_MS);
 
-    const work = this.connect(controller.signal);
+    const target = this.wanted ?? { country: this.state.country, proxyType: this.state.proxyType };
+    const work = this.connect(controller.signal, target);
     if (!router.hasRoute()) router.holdFor(work);
 
     try {
       const creds = await work;
       if (this.abort !== controller) return;
       router.setRoute(creds.tunnels, creds.authHeader);
-      this.serving = { country: this.state.country, proxyType: this.state.proxyType, creds };
+      this.serving = { ...target, creds };
       this.attempt = 0;
       this.blocks = 0;
-      this.set({ status: "on", error: null, fatal: false, stale: false, agents: creds.tunnels.map((t) => t.host), retryAt: null });
+      this.set({
+        status: "on",
+        country: target.country,
+        proxyType: target.proxyType,
+        error: null,
+        fatal: false,
+        stale: false,
+        agents: creds.tunnels.map((t) => t.host),
+        retryAt: null,
+      });
     } catch (err) {
       if (this.abort !== controller) return;
       this.fail(err);
@@ -157,15 +175,16 @@ export class Session {
    * clean session key rather than retrying against one Hola may have expired.
    *
    * @param {AbortSignal} signal
+   * @param {{ country: string, proxyType: import("./settings.js").ProxyType }} target
    * @returns {Promise<hola.Credentials>}
    */
-  async connect(signal) {
+  async connect(signal, target) {
     if (this.identity === null) this.identity = await hola.openIdentity({ signal });
     try {
       return await hola.fetchTunnels({
         identity: this.identity,
-        country: this.state.country,
-        proxyType: this.state.proxyType,
+        country: target.country,
+        proxyType: target.proxyType,
         signal,
       });
     } catch (err) {
@@ -174,10 +193,7 @@ export class Session {
     }
   }
 
-  /**
-   * @param {unknown} err
-   * @param {boolean} live Whether a working tunnel was already carrying traffic.
-   */
+  /** @param {unknown} err */
   fail(err) {
     const holaErr = err instanceof hola.HolaError ? err : null;
     const message = err instanceof Error ? err.message : String(err);
@@ -224,10 +240,11 @@ export class Session {
   scheduleRetry(delay, keepServing) {
     this.retryTimer = setTimeout(() => {
       this.retryTimer = null;
-      // Aim at what the user asked for, not at whatever is serving after a
-      // switch that could not happen.
-      if (keepServing) this.set({ ...this.wanted, retryAt: null });
-      else this.set({ status: "connecting", retryAt: null });
+      // `run` reads the target from `wanted`, so a retry needs no state change
+      // beyond clearing the countdown. Touching country here is what let the
+      // panel report a country the tunnel was not using.
+      if (!keepServing) this.set({ status: "connecting", retryAt: null });
+      else this.set({ retryAt: null });
       this.run();
     }, delay);
   }

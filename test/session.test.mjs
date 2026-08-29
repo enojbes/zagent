@@ -179,7 +179,9 @@ test("repeated blocks double the wait instead of polling every five minutes", as
   }
 
   onInit = async () => INIT;
-  t.mock.timers.tick(70 * 60_000);
+  // The fifth wait is an hour plus up to 25% jitter, so 70 minutes was not
+  // always enough to reach it and this failed roughly one run in four.
+  t.mock.timers.tick(90 * 60_000);
   await settle();
   assert.equal(session.state.status, "on");
   assert.equal(session.state.retryAt, null, "a live tunnel has nothing scheduled");
@@ -317,6 +319,46 @@ test("the retry after a failed switch aims at what was asked for", async (t) => 
   assert.equal(session.state.country, "de", "the retry went for what the user wanted");
   assert.equal(session.state.stale, false);
   assert.equal(host(), "zagent-de.hola.org");
+});
+
+test("state never reports a country the tunnel is not using", async (t) => {
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  session.start(SETTINGS);
+  await settle();
+
+  onInit = async () => ({ blocked: true, permanent: false });
+  onTunnels = async () => ({ blocked: true, permanent: false });
+  session.start({ country: "de", proxyType: "direct" });
+  await settle();
+
+  const agrees = () => assert.equal(session.state.country, "tr", "state follows the tunnel, not the request");
+  agrees();
+
+  // A refresh swallowed by the rate limit used to rewrite state to the request.
+  session.refresh("swallowed", 60_000);
+  await settle();
+  agrees();
+
+  // So did the scheduled retry, before it even ran.
+  t.mock.timers.tick(70 * 60_000);
+  agrees();
+});
+
+test("an unrelated settings change does not restart an in-flight retry", async (t) => {
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  onInit = async () => ({ blocked: true, permanent: false });
+  session.start(SETTINGS);
+  await settle();
+  const attempts = requests.length;
+  const scheduled = session.state.retryAt;
+
+  // apply() calls start() on every settings change; the same target must no-op
+  // rather than cancel the backoff and hammer a blocked address.
+  session.start(SETTINGS);
+  await settle();
+
+  assert.equal(requests.length, attempts, "no extra handshake");
+  assert.equal(session.state.retryAt, scheduled, "the countdown was left alone");
 });
 
 test("refreshing keeps the old route serving until the new one lands", async () => {
