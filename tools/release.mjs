@@ -40,8 +40,17 @@ if (read("git", ["status", "--porcelain", "src/manifest.json"]) !== "") {
   run("git", ["add", "src/manifest.json"]);
   run("git", ["commit", "-m", `Release ${version}`]);
 }
-run("git", ["tag", `v${version}`]);
-run("git", ["push", "origin", "main", "--follow-tags"]);
+// Annotated, not lightweight. --follow-tags ignores lightweight tags, so the
+// first cut of 1.0.5 tagged locally, pushed nothing, and reported success.
+run("git", ["tag", "-a", `v${version}`, "-m", `Zagent ${version}`]);
+run("git", ["push", "origin", "main"]);
+run("git", ["push", "origin", `v${version}`]);
 
-console.log(`\nTagged v${version}. CI signs it and attaches the XPI to the release.`);
-console.log("https://github.com/belagrf/zagent/actions");
+if (read("git", ["ls-remote", "--tags", "origin", `v${version}`]) === "") {
+  console.error(`\nv${version} did not reach the remote. Nothing will build.`);
+  process.exit(1);
+}
+
+const slug = read("git", ["remote", "get-url", "origin"]).replace(/^.*github\.com[:/]/, "").replace(/\.git$/, "");
+console.log(`\nTagged v${version} and pushed it. CI signs and publishes from here.`);
+console.log(`https://github.com/${slug}/actions`);
