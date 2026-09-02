@@ -233,15 +233,63 @@ test("refresh is rate limited so an error burst cannot hammer the API", async ()
   assert.equal(initCount(), 1, "a refresh keeps the identity");
 });
 
-test("rotation mints a new identity", async () => {
+test("a scheduled refresh reuses the identity", async () => {
   session.start(SETTINGS);
   await settle();
 
-  session.refresh("scheduled rotation", 0, true);
+  session.refresh("scheduled agent refresh", 0);
+  await settle();
+  assert.equal(initCount(), 1, "rotating while the address is unchanged unlinks nothing");
+  assert.equal(uuidsUsed().length, 1);
+  assert.equal(countriesAsked().length, 2, "but the agent list is refreshed");
+});
+
+test("an explicit rotation still mints a new identity", async () => {
+  session.start(SETTINGS);
+  await settle();
+
+  session.refresh("rotation", 0, true);
   await settle();
   assert.equal(initCount(), 2);
   assert.equal(uuidsUsed().length, 2);
 });
+
+test("a block does not retire the identity, so retries stop hammering background_init", async (t) => {
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  session.start(SETTINGS);
+  await settle();
+  assert.equal(initCount(), 1);
+
+  // Blocks are counted on background_init, so minting a new identity per retry
+  // means every retry lands on the endpoint doing the blocking.
+  onTunnels = async () => ({ blocked: true, permanent: false });
+  session.refresh("agents unreachable", 0);
+  await settle();
+
+  for (let round = 0; round < 3; round++) {
+    t.mock.timers.tick(90 * 60_000);
+    await settle();
+  }
+  assert.equal(initCount(), 1, "still one background_init after several blocked retries");
+  assert.ok(countriesAsked().length > 2, "the retries went to zgettunnels instead");
+});
+
+test("an ordinary tunnel failure still retires the identity", async (t) => {
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  session.start(SETTINGS);
+  await settle();
+
+  onTunnels = async () => {
+    throw new Error("agent list unavailable");
+  };
+  session.refresh("failure", 0);
+  await settle();
+  t.mock.timers.tick(30_000);
+  await settle();
+
+  assert.ok(initCount() > 1, "a spent session key is replaced");
+});
+
 
 test("a failed refresh keeps the working tunnel instead of tearing it down", async (t) => {
   t.mock.timers.enable({ apis: ["setTimeout"] });

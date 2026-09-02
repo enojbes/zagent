@@ -171,8 +171,14 @@ export class Session {
   }
 
   /**
-   * Any tunnel failure retires the identity, so the next attempt starts from a
-   * clean session key rather than retrying against one Hola may have expired.
+   * A tunnel failure usually means the session key is spent, so the identity is
+   * retired and the next attempt starts clean.
+   *
+   * A block is the exception, and it matters. Blocks are counted against the
+   * address on `background_init`, which is the very call minting an identity, so
+   * retiring one during a block means every retry hammers the endpoint doing the
+   * blocking. Hola's own extension mints a single identity and keeps it in three
+   * places forever; this at least stops digging.
    *
    * @param {AbortSignal} signal
    * @param {{ country: string, proxyType: import("./settings.js").ProxyType }} target
@@ -188,10 +194,11 @@ export class Session {
         signal,
       });
     } catch (err) {
-      this.identity = null;
+      if (!(err instanceof hola.HolaError) || err.retryAfterMs === 0) this.identity = null;
       throw err;
     }
   }
+
 
   /** @param {unknown} err */
   fail(err) {

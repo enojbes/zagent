@@ -32,13 +32,32 @@ const marks = {};
 /** @type {any} */
 let popupReport = null;
 
+/** Milliseconds of silence from the agent before a phase boundary is trusted. */
+const QUIET_MS = 700;
+let lastArrivalAt = 0;
+
 const agent = createTcpServer((socket) => {
   socket.once("data", (chunk) => {
     arrivals.push({ firstBytes: chunk.subarray(0, 3), sni: readSni(chunk) });
+    lastArrivalAt = Date.now();
     socket.destroy();
   });
   socket.on("error", () => {});
 });
+
+/**
+ * A connection Firefox opened during one phase can reach the listener after the
+ * next phase has started, which blamed the wrong phase and failed at random.
+ * Waiting for the agent to fall quiet attributes late arrivals to whatever
+ * caused them.
+ */
+async function quiesce() {
+  const deadline = Date.now() + 5_000;
+  while (Date.now() < deadline && Date.now() - lastArrivalAt < QUIET_MS) {
+    await new Promise((r) => setTimeout(r, 100));
+  }
+}
+
 await new Promise((resolve) => agent.listen(0, "127.0.0.1", resolve));
 const LIVE_PORT = agent.address().port;
 
@@ -63,10 +82,13 @@ function maybeDeliver() {
 }
 const collector = createHttpServer((req, res) => {
   if (req.url.startsWith("/mark/")) {
-    marks[req.url.slice(6)] = arrivals.length;
-    res.writeHead(204).end();
+    quiesce().then(() => {
+      marks[req.url.slice(6)] = arrivals.length;
+      res.writeHead(204).end();
+    });
     return;
   }
+
   if (req.url === "/popup") {
     let body = "";
     req.on("data", (chunk) => (body += chunk));

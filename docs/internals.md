@@ -15,9 +15,23 @@
 5. Return that array from `proxy.onRequest`.
 
 Steps 1 and 2 happen once. Switching country reruns only step 3, which halves
-the requests per switch and matters for the reason below. The identity is
-retired every 12 hours and whenever a tunnel request fails, so a stale session
-key is never retried.
+the requests per switch and matters for the reason below.
+
+The identity is kept for the life of the browser session and retired when a
+tunnel request fails, since that usually means the session key is spent. It is
+deliberately **not** retired during a block. Blocks are counted against the
+address on `background_init`, the very call that mints an identity, so retiring
+one mid-block means every retry lands on the endpoint doing the blocking. Nor is
+it rotated on a schedule: rotating while the address is unchanged unlinks
+nothing, because Hola correlates on the address regardless, and each rotation is
+one more call to the rate-limited endpoint. The twelve-hourly alarm refreshes
+the agent list on the same identity.
+
+Reading Hola's own extension settled this. It mints one identity and persists it
+across `storage.local`, `localStorage` and a cookie, reusing it indefinitely.
+Ours is still shorter-lived, because it is memory-only and dies with the browser
+session, which is the boundary where the address plausibly changes too.
+
 
 Credentials live in memory only and are never written to disk. Closing Firefox
 throws them away.
@@ -54,10 +68,12 @@ Mint several user ids from one address in quick succession and Hola answers
 one block, caused by roughly six handshakes inside ten minutes, was still in
 place two hours later.
 
-It shapes three things. The extension holds one identity so a country switch
+It shapes four things. The extension holds one identity, so a country switch
 costs no new one. The panel waits 400ms before acting on a click, so running
-down the list costs one handshake rather than one per row. And a block backs off
-five minutes, then ten, twenty, forty, capping at an hour.
+down the list costs one handshake rather than one per row. A block backs off five
+minutes, then ten, twenty, forty, capping at an hour. And a block never retires
+the identity, so the retries do not land on the endpoint that is blocking.
+
 
 The block is on `background_init`, which mints the identity, so it gates every
 exit type equally when you need a *new* session. Nothing is exempt.

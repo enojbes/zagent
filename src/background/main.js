@@ -161,7 +161,12 @@ function paint(state) {
 }
 
 browser.alarms.onAlarm.addListener((alarm) => {
-  if (alarm.name === ROTATE_ALARM) session.refresh("scheduled rotation", 0, true);
+  // Refreshes the agent list, deliberately on the same identity. Rotating it
+  // while the address is unchanged unlinks nothing, because Hola correlates on
+  // the address anyway, and every rotation is one more call to the endpoint that
+  // rate-limits us.
+  if (alarm.name === ROTATE_ALARM) session.refresh("scheduled agent refresh", 0);
+
 });
 
 browser.runtime.onMessage.addListener((msg) => {
