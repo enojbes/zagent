@@ -38,15 +38,21 @@ const nameOf = (code) => {
 const flagOf = (code) =>
   String.fromCodePoint(...[...toRegion(code)].map((c) => 0x1f1e6 + c.charCodeAt(0) - 65));
 
+/**
+ * Measured across Türkiye, the United States, Brazil and Japan in September
+ * 2026. Every one of them came out at a hosting provider, so the older warnings
+ * about borrowing somebody's home line were describing something that does not
+ * happen on the free tier.
+ */
 const TYPE_NOTES = {
-  direct:
-    "Hola's own datacenter servers. Fastest, and nothing of your connection is shared with anyone. Verified working; this is the one to use.",
-  pool: "A shared pool of datacenter servers. Undocumented upstream and untested here.",
-  lum: "A home address rented from Bright Data's shared pool. Harder for sites to block, and slower, but you are borrowing a stranger's line.",
-  peer: "Routes through another Hola user's home connection. Undocumented upstream, and the arrangement is meant to run both ways.",
-  virt: "A pool Hola appears to fill only for Brazil and Japan. Expect it to fail everywhere else.",
+  direct: "Hola's own servers. Available for every country tested, and the one to use.",
+  pool: "A second pool of the same. Returns nothing for many countries.",
+  lum: "Named for Bright Data's residential product, but on the free tier it answers with a datacenter address like the rest. Returns nothing for many countries.",
+  peer: "The peer port. Measured identical to Datacenter, same provider and often the same address.",
+  virt: "Rarely populated. Worked for Brazil, returned nothing for Türkiye, the United States and Japan.",
 };
-const RISKY_TYPES = new Set(["peer", "lum"]);
+/** Nothing measured here is risky, so nothing is painted as though it were. */
+const PATCHY_TYPES = new Set(["pool", "lum", "virt"]);
 const TYPE_LABELS = {
   direct: "Datacenter",
   pool: "Datacenter pool",
@@ -213,7 +219,7 @@ function ageOf(at) {
 
 function paintTypeNote(type) {
   el.typeNote.textContent = TYPE_NOTES[type] ?? "";
-  el.typeNote.classList.toggle("warn", RISKY_TYPES.has(type));
+  el.typeNote.classList.toggle("patchy", PATCHY_TYPES.has(type));
 }
 
 function renderCountries() {

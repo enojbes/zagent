@@ -403,8 +403,8 @@ summary {
   font-size: 11px;
 }
 
-.note.warn {
-  color: var(--bad);
+.note.patchy {
+  color: var(--wait);
 }
 
 .ghost {

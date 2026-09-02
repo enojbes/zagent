@@ -54,20 +54,19 @@
       <label class="row">
         <span>Exit type</span>
         <select id="proxyType">
-          <optgroup label="Hola's own servers">
+          <optgroup label="Available everywhere tested">
             <option value="direct">Datacenter</option>
+            <option value="peer">Peer port</option>
+          </optgroup>
+          <optgroup label="Often returns nothing">
             <option value="pool">Datacenter pool</option>
-          </optgroup>
-          <optgroup label="Someone else's home connection">
-            <option value="lum">Residential, rented</option>
-            <option value="peer">Peer</option>
-          </optgroup>
-          <optgroup label="Rarely available">
+            <option value="lum">Residential pool</option>
             <option value="virt">Virtual pool</option>
           </optgroup>
         </select>
       </label>
       <p class="note" id="typeNote"></p>
+      <p class="note">Every exit measured so far has been a datacenter, whichever of these you pick.</p>
 
       <label class="row check">
         <input type="checkbox" id="failClosed" />

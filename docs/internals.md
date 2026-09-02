@@ -29,9 +29,23 @@ plus which port field `peer` reads.
 | --- | --- | --- |
 | Datacenter | `tr` | `trial` |
 | Datacenter pool | `tr.pool` | `trial` |
-| Residential | `tr.pool_lum_tr_shared` | `trial` |
-| Peer | `tr` | `trial_peer` |
+| Residential pool | `tr.pool_lum_tr_shared` | `trial` |
+| Peer port | `tr` | `trial_peer` |
 | Virtual pool | `tr.pool_virt_pool_tr` | `trial` |
+
+Measuring them in September 2026 showed the names promise more than they
+deliver. Every exit across Türkiye, the United States, Brazil and Japan came out
+at a hosting provider, `agent_types` was `hola` in all twenty cases, and the
+"residential" pool answered with a Vultr address. Three of the five return no
+agent at all for most countries. The README carries the table.
+
+The port field turns out not to matter either. On a Turkish agent, `direct`,
+`peer`, `trial` and `trial_peer` all returned the identical address, and the
+agent accepted a `CONNECT` carrying no `Proxy-Authorization` at all. Only the
+`hola` port behaved differently, answering `403 Forbidden Host`. The extension
+still sends credentials, because an agent that does not check today may check
+tomorrow, and because that is what Hola's own client does.
+
 
 ## Hola rate-limits new identities
 
@@ -61,10 +75,11 @@ and port, it keeps proxying regardless. Curiously, offering no credentials fares
 better than offering wrong ones.
 
 This also explains a question that looks paradoxical from the outside: why
-Datacenter keeps working during a block while Residential will not connect.
-Datacenter is already connected, and its agent does not care about the block.
-Residential is a different `country` parameter, so reaching it needs a
+Datacenter keeps working during a block while another exit type will not
+connect. Datacenter is already connected, and its agent does not care about the
+block. The others are different `country` parameters, so reaching one needs a
 `zgettunnels` call, which the block refuses.
+
 
 The extension keeps sending its credentials, the way Hola's own client does.
 What this changes is failure handling. A refresh that cannot reach the API is

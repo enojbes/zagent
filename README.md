@@ -30,9 +30,10 @@ trade is one you want before, not after.
 **It is not a VPN.** Nothing outside Firefox is protected. Turning it on clears
 no cookies and changes no fingerprint, so sites that knew you still do.
 
-**What it will not do to you:** on the default Datacenter setting, nobody else's
-traffic ever exits through your connection. That is the part of Hola's model
-worth declining, and it is off unless you go and turn it on.
+**What it will not do to you:** it never turns your machine into an exit node
+for anyone, on any setting. This is a proxy client, not Hola's peer client, so
+it contains no code that could carry a stranger's traffic.
+
 
 ## Install
 
@@ -55,27 +56,47 @@ restart.
 
 ## Choosing an exit
 
-Five options, and the first is the answer unless you have a specific reason.
+Five options, and **Datacenter is the answer**. The other four were measured in
+September 2026 across Türkiye, the United States, Brazil and Japan, and the
+results are not what the names suggest.
 
-| Exit | Comes out at | Trade |
-| --- | --- | --- |
-| **Datacenter** | Hola's own servers | Fastest. Streaming services and banks often reject it |
-| Datacenter pool | A shared pool of the same | Same trade, different addresses |
-| Residential | A home line rented from Bright Data | Harder to block, slower, and it is a stranger's line |
-| Peer | Another Hola user's home connection | Harder to block, slowest, meant to run both ways |
-| Virtual pool | A pool Hola fills for a couple of countries | Fails almost everywhere else |
+| Exit | tr | us | br | jp | Where it actually came out |
+| --- | :-: | :-: | :-: | :-: | --- |
+| **Datacenter** | ✓ | ✓ | ✓ | ✓ | Radore, DigitalOcean, Hivelocity, Vultr |
+| Peer port | ✓ | ✓ | ✓ | ✓ | Same provider as Datacenter, often the same address |
+| Datacenter pool | — | ✓ | ✓ | — | DigitalOcean, Hivelocity |
+| Residential pool | — | ✓ | ✓ | — | Vultr. A datacenter, despite the name |
+| Virtual pool | — | — | ✓ | — | Hivelocity |
 
-Only **Datacenter** has been measured here: `country=tr` came out at
-`94.101.87.40`, AS42926 Radore, Istanbul. `hola-proxy` documents only Datacenter
-and Residential; the other three are undocumented code paths, and its source
-comment on Virtual pool says "seems to be for brazil and japan only". The panel
-groups them accordingly and says which is which. To measure them yourself,
-`node tools/probe-types.mjs tr`.
+**Every exit is a datacenter.** Not one of the twenty measurements landed on a
+consumer ISP, and `agent_types` came back as `hola` every time, never a peer or
+residential type. The likeliest explanation is that the residential pool is a
+paid product and the free tier falls back to hosting, but that is a guess. The
+measurement is not.
 
-Two limits worth knowing regardless of choice. Hola blocks about 195 domains at
-the proxy, mostly webmail, so those simply fail while the tunnel is up; add them
-to the bypass list. And exiting through Turkey means inheriting Turkish ISP
-blocks. It is a Turkish address, not a freer one.
+The warning this README used to carry, that Residential and Peer route you
+through a stranger's home connection, was describing something that does not
+happen here. It came from `hola-proxy`'s documentation rather than from testing,
+and testing it showed otherwise.
+
+Ports turn out not to matter either. On a Turkish agent, `direct`, `peer`,
+`trial` and `trial_peer` all returned the identical address, and the agent
+accepted a `CONNECT` with **no credentials at all**. Only the `hola` port
+answered differently, with `403 Forbidden Host`.
+
+Measure it yourself, and mind that this is exactly the burst that gets an
+address blocked:
+
+```bash
+node tools/probe-types.mjs tr us br jp   # one identity, every type
+node tools/probe-ports.mjs tr            # every port on one agent
+```
+
+Two limits apply whichever you choose. Hola blocks about 195 domains at the
+proxy, mostly webmail, so those fail while the tunnel is up; add them to the
+bypass list. And exiting through Turkey means inheriting Turkish ISP blocks. It
+is a Turkish address, not a freer one.
+
 
 ## What the panel is telling you
 

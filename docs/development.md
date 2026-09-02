@@ -60,12 +60,20 @@ both harnesses have their probes post to a loopback collector they own. Loopback
 is never tunnelled, so the report cannot be distorted by the thing it reports on.
 
 ```bash
-node tools/probe-types.mjs tr
+node tools/probe-types.mjs tr us br jp
+node tools/probe-ports.mjs tr
 ```
 
-Measures all five exit types: agent type, vendor, port, exit address, connect
-latency. Reuses one identity across all of them, because minting one per type is
-the burst that causes blocks, and refuses to run at all while blocked.
+The first measures every exit type for every country given: agent type, vendor,
+port, exit address, connect latency. The second takes one agent and tries every
+port in the map, with and without credentials.
+
+Both reuse a single identity, because minting one per combination is the burst
+that causes blocks, and the first refuses to run at all while blocked. Even so,
+running them back to back is enough to get an address blocked for hours. That is
+how the September 2026 numbers in the README were produced, and it cost a block
+to produce them.
+
 
 ```bash
 node tools/capture-popup.mjs

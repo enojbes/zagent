@@ -9,14 +9,16 @@
  * Note that `peer` and `lum` exit through somebody's home connection, so this
  * sends one request each through a stranger's line and no more.
  *
- * Usage: node tools/probe-types.mjs [country]
+ * Usage: node tools/probe-types.mjs [country...]
  */
 import tls from "node:tls";
 
 const UA =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36";
 const CCGI = "https://client.hola.org/client_cgi/";
-const COUNTRY = process.argv[2] ?? "tr";
+const COUNTRIES = process.argv.slice(2).length ? process.argv.slice(2) : ["tr"];
+/** Hola throttles bursts, so space the calls out rather than race them. */
+const GAP_MS = 1_500;
 const TARGET = { host: "ipinfo.io", port: 443 };
 
 /** Mirrors src/background/hola.js. Kept here so the probe stays standalone. */
@@ -45,55 +47,60 @@ if (init.blocked) {
 }
 console.log(`identity ${uuid.slice(0, 8)}… · ext ${init.ver} · Hola sees this address in ${init.country}\n`);
 
-for (const type of Object.keys(COUNTRY_PARAM)) {
-  const param = COUNTRY_PARAM[type](COUNTRY);
-  process.stdout.write(`${type.padEnd(7)} country=${param.padEnd(26)}`);
+for (const COUNTRY of COUNTRIES) {
+  console.log(`--- ${COUNTRY} ---`);
+  for (const type of Object.keys(COUNTRY_PARAM)) {
+    await new Promise((r) => setTimeout(r, GAP_MS));
+    const param = COUNTRY_PARAM[type](COUNTRY);
+    process.stdout.write(`${type.padEnd(7)} country=${param.padEnd(28)}`);
 
-  let tun;
-  try {
-    tun = await post(
-      `${CCGI}zgettunnels?` +
-        new URLSearchParams({
-          country: param,
-          limit: "3",
-          ping_id: String(Math.random()),
-          ext_ver: init.ver,
-          browser: "chrome",
-          product: "cws",
-          uuid,
-          session_key: String(init.key),
-          is_premium: "0",
-        }),
+    let tun;
+    try {
+      tun = await post(
+        `${CCGI}zgettunnels?` +
+          new URLSearchParams({
+            country: param,
+            limit: "3",
+            ping_id: String(Math.random()),
+            ext_ver: init.ver,
+            browser: "chrome",
+            product: "cws",
+            uuid,
+            session_key: String(init.key),
+            is_premium: "0",
+          }),
+      );
+    } catch (err) {
+      console.log(`request failed: ${err.message}`);
+      continue;
+    }
+
+    if (tun.blocked) {
+      console.log("blocked mid-run; stopping so it does not get worse");
+      process.exit(1);
+    }
+
+    const hosts = Object.keys(tun.ip_list ?? {});
+    if (hosts.length === 0) {
+      console.log(`no agent (agent_types ${JSON.stringify(tun.agent_types ?? {})})`);
+      continue;
+    }
+
+    const host = hosts.find((h) => String(tun.protocol?.[h]).toLowerCase() === "http") ?? hosts[0];
+    const port = tun.port?.[PORT_FIELD[type]];
+    const auth = "basic " + Buffer.from(`user-uuid-${uuid}-is_prem-0:${tun.agent_key}`).toString("base64");
+    const exit = await probe(host, port, auth);
+
+    console.log(
+      [
+        `agent=${Object.values(tun.agent_types ?? {})[0] ?? "?"}`,
+        `vendor=${tun.vendor?.[host] ?? "?"}`,
+        `port=${port}`,
+        exit.err ? `FAILED ${exit.err}` : `${exit.ip} ${exit.country} ${exit.connectMs}ms · ${exit.org}`,
+      ].join(" · "),
     );
-  } catch (err) {
-    console.log(`request failed: ${err.message}`);
-    continue;
   }
-
-  if (tun.blocked) {
-    console.log("blocked mid-run; stopping so it does not get worse");
-    break;
-  }
-
-  const hosts = Object.keys(tun.ip_list ?? {});
-  if (hosts.length === 0) {
-    console.log(`no agent (agent_types ${JSON.stringify(tun.agent_types ?? {})})`);
-    continue;
-  }
-
-  const host = hosts.find((h) => String(tun.protocol?.[h]).toLowerCase() === "http") ?? hosts[0];
-  const port = tun.port?.[PORT_FIELD[type]];
-  const auth = "basic " + Buffer.from(`user-uuid-${uuid}-is_prem-0:${tun.agent_key}`).toString("base64");
-  const exit = await probe(host, port, auth);
-
-  console.log(
-    [
-      `agent_type=${Object.values(tun.agent_types ?? {})[0] ?? "?"}`,
-      `vendor=${tun.vendor?.[host] ?? "?"}`,
-      `port=${port}`,
-      exit.err ? `FAILED ${exit.err}` : `${exit.ip} ${exit.country} ${exit.connectMs}ms · ${exit.org}`,
-    ].join(" · "),
-  );
+  console.log("");
 }
 
 async function post(url, init = {}) {
